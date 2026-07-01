@@ -4,7 +4,7 @@ import { loadAllFonts } from "@/lib/fonts";
 import { renderThemeSlide } from "@/lib/themes";
 import { RenderProjectSchema } from "@/lib/validators";
 import { tokenizeCode } from "@/lib/tokenize-code";
-import { execFileSync } from "child_process";
+import { Resvg } from "@resvg/resvg-js";
 import fs from "fs";
 import path from "path";
 
@@ -39,24 +39,18 @@ function removeZIndexFromTree(node: any): any {
   return node;
 }
 
-function renderWithResvg(svg: string, slideIdx: number): string {
-  // Save SVG for debugging
-  const debugPath = path.join("/tmp", `slide-${slideIdx}.svg`);
-  fs.writeFileSync(debugPath, svg);
-
-  // Run resvg in a child process to isolate Rust panics
-  const scriptPath = path.join(process.cwd(), "scripts", "render-svg.mjs");
-  const result = execFileSync("node", [scriptPath, debugPath], {
-    timeout: 30000,
-    encoding: "utf8",
-    maxBuffer: 50 * 1024 * 1024,
-  });
-
-  const parsed = JSON.parse(result);
-  if (!parsed.success) {
-    throw new Error(parsed.error || "Resvg rendering failed");
+function renderWithResvg(svg: string, _slideIdx: number): string {
+  try {
+    const resvg = new Resvg(svg, {
+      background: "rgba(0, 0, 0, 0)",
+      fitTo: { mode: "width", value: 1080 },
+    });
+    const pngData = resvg.render();
+    const pngBuffer = pngData.asPng();
+    return `data:image/png;base64,${pngBuffer.toString("base64")}`;
+  } catch (err: any) {
+    throw new Error(err.message || "Resvg rendering failed");
   }
-  return `data:image/png;base64,${parsed.base64}`;
 }
 
 export async function POST(req: Request) {
