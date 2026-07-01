@@ -185,11 +185,20 @@ export default function Home() {
       let active = true;
       const upgradePreview = async () => {
         try {
+          const s = slides[0];
           const res = await fetch("/api/render", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              slides: [slides[0]],
+              slides: [{
+                type: s.type,
+                title: s.userTitle,
+                body: s.userBody,
+                imageUrl: s.imageUrl || null,
+                imageLayout: s.imageLayout || "inline",
+                visualType: s.visualType || "text-only",
+                visualData: s.visualData || null,
+              }],
               themeName,
               username,
               websiteUrl,
