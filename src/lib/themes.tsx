@@ -434,79 +434,31 @@ const Venn = ({ data, colors }: { data: any; colors: any }) => {
   const overlapLabel = data?.overlapLabel || "Shared";
 
   const isDark = colors.text === "#ffffff" || colors.text === "#e5e5e5";
-  const labelBg = isDark ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.92)";
+  const labelBg = isDark ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.95)";
+
+  const textSize = 14;
+  const smallTextSize = 12;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", height: "320px", position: "relative", justifyContent: "center" }}>
-      <svg width="600" height="320" viewBox="0 0 600 320" fill="none" style={{ position: "absolute", top: 0 }}>
-        {/* Left Circle with translucent accent fill */}
-        <circle cx="220" cy="160" r="140" fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="3" opacity="0.9" />
-        {/* Right Circle with translucent accent fill */}
-        <circle cx="380" cy="160" r="140" fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="3" opacity="0.9" />
-      </svg>
-      
-      {/* Left Concept Box */}
-      <div
-        style={{
-          position: "absolute",
-          left: "90px",
-          top: "125px",
-          width: "140px",
-          height: "70px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: labelBg,
-          border: `1.5px solid ${colors.glassBorder || "rgba(0,0,0,0.1)"}`,
-          borderRadius: "14px",
-          padding: "8px",
-          boxSizing: "border-box",
-        }}
-      >
-        <span style={{ fontSize: "14px", fontWeight: "bold", color: colors.text, textAlign: "center" }}>{leftLabel}</span>
-      </div>
-      
-      {/* Right Concept Box */}
-      <div
-        style={{
-          position: "absolute",
-          right: "90px",
-          top: "125px",
-          width: "140px",
-          height: "70px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: labelBg,
-          border: `1.5px solid ${colors.glassBorder || "rgba(0,0,0,0.1)"}`,
-          borderRadius: "14px",
-          padding: "8px",
-          boxSizing: "border-box",
-        }}
-      >
-        <span style={{ fontSize: "14px", fontWeight: "bold", color: colors.text, textAlign: "center" }}>{rightLabel}</span>
-      </div>
+    <div style={{ display: "flex", width: "100%", height: "340px", position: "relative", justifyContent: "center", alignItems: "center" }}>
+      <svg width="600" height="340" viewBox="0 0 600 340" fill="none" style={{ position: "absolute" }}>
+        {/* Left circle */}
+        <circle cx="210" cy="170" r="150" fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="3" opacity="0.9" />
+        {/* Right circle */}
+        <circle cx="390" cy="170" r="150" fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="3" opacity="0.9" />
 
-      {/* Intersect Box */}
-      <div
-        style={{
-          position: "absolute",
-          left: "215px",
-          top: "120px",
-          width: "170px",
-          height: "80px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.accent,
-          borderRadius: "16px",
-          padding: "8px",
-          boxSizing: "border-box",
-          border: `3px solid ${colors.background?.color || (isDark ? "#050505" : "#ffffff")}`,
-        }}
-      >
-        <span style={{ fontSize: "14px", fontWeight: "bold", color: "#ffffff", textAlign: "center" }}>{overlapLabel}</span>
-      </div>
+        {/* Left label pill */}
+        <rect x="95" y="155" width="110" height="30" rx="15" fill={labelBg} stroke={colors.accent} strokeWidth="1.5" />
+        <text x="150" y="176" textAnchor="middle" fontFamily="Outfit" fontSize={leftLabel.length > 15 ? smallTextSize : textSize} fontWeight="700" fill={colors.text}>{leftLabel}</text>
+
+        {/* Right label pill */}
+        <rect x="395" y="155" width="110" height="30" rx="15" fill={labelBg} stroke={colors.accent} strokeWidth="1.5" />
+        <text x="450" y="176" textAnchor="middle" fontFamily="Outfit" fontSize={rightLabel.length > 15 ? smallTextSize : textSize} fontWeight="700" fill={colors.text}>{rightLabel}</text>
+
+        {/* Overlap label pill */}
+        <rect x="260" y="145" width="80" height="50" rx="14" fill={colors.accent} />
+        <text x="300" y="168" textAnchor="middle" fontFamily="Outfit" fontSize={overlapLabel.length > 12 ? smallTextSize : textSize} fontWeight="700" fill="#ffffff">{overlapLabel}</text>
+      </svg>
     </div>
   );
 };
