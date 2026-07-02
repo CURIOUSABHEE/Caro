@@ -1,5 +1,6 @@
-import { JSDOM } from "jsdom";
+import { parseHTML } from "linkedom";
 import { Readability } from "@mozilla/readability";
+
 
 export interface ExtractedArticle {
   title: string;
@@ -38,16 +39,15 @@ export async function extractArticle(url: string): Promise<ExtractedArticle> {
       throw new Error("Received empty HTML content from the page.");
     }
 
-    // Parse HTML with jsdom
-    const dom = new JSDOM(html, { url });
-    
-    // Check if JSDOM succeeded
-    if (!dom.window.document) {
+    // Parse HTML with linkedom (lightweight DOM for serverless)
+    const { document } = parseHTML(html);
+
+    if (!document) {
       throw new Error("Failed to parse DOM representation of page.");
     }
 
     // Run Mozilla Readability
-    const reader = new Readability(dom.window.document);
+    const reader = new Readability(document);
     const article = reader.parse();
 
     if (!article) {
