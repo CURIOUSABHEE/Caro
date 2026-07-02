@@ -882,7 +882,7 @@ const ScribbleOverlay = ({ order, totalSlides, theme }: { order: number; totalSl
     }
   }
 
-  return <div style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", pointerEvents: "none", zIndex: 30 }}>{elements}</div>;
+  return <div style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", pointerEvents: "none", zIndex: 30, display: "contents" }}>{elements}</div>;
 };
 
 // Overlay custom graphic shapes / diagrams
@@ -994,7 +994,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
           );
         })()}
 
-        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble && <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} />}
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
           <span style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "4px", color: "#6e6e6e", textTransform: "uppercase" }}>
@@ -1115,7 +1115,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         {!hasBgImage && <PanoramicBackground theme="soft-gradient" order={order} totalSlides={totalSlides} />}
 
         {/* Custom Diagram Shapes Overlay */}
-        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble && <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} />}
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
 
         <div
           style={{
@@ -1253,7 +1253,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         {!hasBgImage && <PanoramicBackground theme="warm-editorial" order={order} totalSlides={totalSlides} />}
 
         {/* Custom Diagram Shapes Overlay */}
-        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble && <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} />}
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
 
         {/* Top Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", zIndex: 10 }}>
@@ -1385,7 +1385,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         {!hasBgImage && <PanoramicBackground theme="mesh-glow" order={order} totalSlides={totalSlides} />}
 
         {/* Custom Diagram Shapes Overlay */}
-        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble && <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} />}
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
 
         {/* Top Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
@@ -1522,7 +1522,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         {!hasBgImage && <PanoramicBackground theme="cyber-horizon" order={order} totalSlides={totalSlides} />}
 
         {/* Custom Diagram Shapes Overlay */}
-        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble && <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} />}
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
 
         {/* corner accent brackets */}
         {!hasBgImage && (() => {
@@ -1696,7 +1696,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         })()}
 
         {/* Custom Diagram Shapes Overlay */}
-        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble && <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} />}
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
 
         {/* Top Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
