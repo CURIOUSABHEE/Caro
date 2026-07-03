@@ -5,7 +5,7 @@ export interface SlideBlock {
   title: string;
   body: string;
   order: number;
-  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only";
+  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat";
   visualData?: any;
 }
 
@@ -15,6 +15,77 @@ function getGroqClient(): Groq {
     throw new Error("GROQ_API_KEY is not configured. Please add your Groq API Key to the .env file.");
   }
   return new Groq({ apiKey });
+}
+
+// --- JSON recovery helpers for LLM output ---
+
+// Strip unescaped control chars (newlines, tabs) inside JSON string values
+function sanitizeJsonString(raw: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escaped) { result += ch; escaped = false; continue; }
+    if (ch === "\\") { result += ch; escaped = true; continue; }
+    if (ch === '"') { inString = !inString; result += ch; continue; }
+    if (inString) {
+      if (ch === "\n") { result += "\\n"; continue; }
+      if (ch === "\r") { result += "\\r"; continue; }
+      if (ch === "\t") { result += "\\t"; continue; }
+    }
+    result += ch;
+  }
+  return result;
+}
+
+// Remove trailing commas before ] or } (common LLM artifact)
+function removeTrailingCommas(s: string): string {
+  return s.replace(/,(\s*[\]}])/g, "$1");
+}
+
+// Parse LLM JSON output with multiple recovery strategies
+function tryParseJson(raw: string): any {
+  const s = sanitizeJsonString(raw);
+  // Attempt 0: extract JSON from markdown code block fences first
+  const codeBlockMatch = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = codeBlockMatch ? codeBlockMatch[1].trim() : s;
+  // Attempt 1: direct parse
+  try { return JSON.parse(candidate); } catch {}
+  // Attempt 2: strip trailing commas
+  try { return JSON.parse(removeTrailingCommas(candidate)); } catch {}
+  // Attempt 3: extract outermost balanced braces
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < candidate.length; i++) {
+    if (candidate[i] === "{") {
+      if (start === -1) start = i;
+      depth++;
+    } else if (candidate[i] === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        const braceCandidate = candidate.slice(start, i + 1);
+        try { return JSON.parse(braceCandidate); } catch {}
+        break;
+      }
+    }
+  }
+  throw new Error(`No valid JSON found in response. Raw response (first 500 chars): ${raw.slice(0, 500)}`);
+}
+
+// Rough token counter (English: ~4 chars per token)
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+// Truncate text to stay within a token budget, preserving the start
+function compressText(text: string, maxTokens: number): string {
+  if (maxTokens <= 0) return text.slice(0, 2000) + "\n\n[...content truncated...]";
+  const estimatedTokens = estimateTokens(text);
+  if (estimatedTokens <= maxTokens) return text;
+
+  const maxChars = maxTokens * 4;
+  return text.slice(0, maxChars) + "\n\n[...content truncated...]";
 }
 
 export async function planSlides(
@@ -30,61 +101,36 @@ export async function planSlides(
       ? "Determine an appropriate number of slides (typically 6 to 9 slides including 1 COVER and 1 CLOSING) based on the length, depth, and key arguments of the text."
       : `Generate exactly ${slideCount} slides in total, including 1 COVER slide at the beginning, followed by content slides, and ending with exactly 1 CLOSING slide.`;
 
-  const systemPrompt = `You are a master social media content designer and copywriter. Your goal is to transform a long article into a highly educational, visually engaging slide-by-slide carousel (typically 6-10 slides) designed to explain complex topics clearly.
+  const systemPrompt = `You transform articles into educational slide carousels (6-10 slides).
 
 ${countInstruction}
 
-====== CONTENT EXTRACTION & COPYWRITING ======
-- Extract the absolute best lines, key points, practical lessons, and high-value details from the source text.
-- Do NOT summarize at a superficial level. Every slide must deliver rich, actionable, and descriptive context so the reader doesn't lose the core technical lessons of the article.
-- Combine visual structure with rich theoretical context. Ensure that critical concepts and details that are essential to understanding the topic are never skipped or left out.
+RULES:
+- Extract key points, practical lessons, and high-value details. Every slide must deliver rich, descriptive context.
+- COVER: first slide, text-only, short striking title.
+- CLOSING: final slide, text-only, call-to-action.
+- CONTENT: choose the best visualType for the idea:
 
-====== DESIGN RULES & VISUAL COGNITION ======
-Social media carousels must hook the reader, deliver high educational value, and be easy to scan. Diagrams and shapes are NOT decorative fillers; they must drive explanation and visual hierarchy.
+  "text-only" — purely narrative. Body: exactly 3-4 bullet points (•) ordered by importance.
+  "code-block" — code/config display. visualData: {code, language}.
+  "step-chain" — sequences/workflows. visualData: {"steps": [{"number":1,"label":"","description":""}]} (3-4 steps).
+  "venn" — comparisons/overlap. visualData: {"leftLabel":"","rightLabel":"","overlapLabel":"","leftPoints":[""],"rightPoints":[""]}.
+  "wheel" — categories around a core. visualData: {"centerLabel":"","spokes":[{"label":"","description":""}]} (3-4 spokes).
+  "concentric" — hierarchy/layers. visualData: {"rings":[{"ringLabel":"","depth":1},{"ringLabel":"","depth":2},{"ringLabel":"","depth":3}]}.
+  "icon-grid" — highlights/takeaways. visualData: {"items":[{"icon":"briefcase|lightbulb|star|settings|shield|alert|code|chart|user","label":"","description":""}]} (4-6 items).
+  "quote" — testimonial/key insight. visualData: {"quote":"","attribution":"","role":""}.
+  "stat" — striking statistic. visualData: {"number":"80%","label":"","context":""}.
+  "table" — side-by-side comparison. visualData: {"headers":["","A","B"],"rows":[{"label":"C1","values":["",""]}]} (3-5 rows, 2-4 cols).
 
-For each slide, you must choose the most effective layout and visual representation:
-1. "COVER": First slide. Visually striking, short title, sub-headline. Must be "text-only".
-2. "CLOSING": Final slide. Call-to-action (CTA). Must be "text-only".
-3. "CONTENT": Explains specific ideas. You must choose a "visualType" that fits the logical structure of the content:
-   - "code-block": Use if the slide explains code, commands, or configs. Place code in visualData.code, language in visualData.language.
-   - "step-chain": Use for sequences, processes, workflows, timelines, or step-by-step guides.
-     visualData: {"steps": [{"number": 1, "label": "Short Step Title", "description": "Short explanation"}]} (Exactly 3-4 steps)
-   - "venn": Use for comparisons, showing overlap, or intersections between two concepts.
-     visualData: {"leftLabel": "Concept A", "rightLabel": "Concept B", "overlapLabel": "Shared Intersect"}
-   - "wheel": Use for illustrating categories, attributes, or pillars centered around a core topic.
-     visualData: {"centerLabel": "Core Topic", "spokes": [{"label": "Pillar 1"}, {"label": "Pillar 2"}, {"label": "Pillar 3"}, {"label": "Pillar 4"}]} (Exactly 3-4 spokes)
-   - "concentric": Use for showing hierarchy, nested relationships, layers of a system, or nesting scopes.
-     visualData: {"rings": [{"ringLabel": "Core (Inner)", "depth": 1}, {"ringLabel": "Middle Layer", "depth": 2}, {"ringLabel": "Outer Layer", "depth": 3}]} (Exactly 3 rings, depth 1 to 3)
-   - "icon-grid": Use for lists of highlights, key takeaways, feature sets, or pros/cons.
-     visualData: {"items": [{"icon": "briefcase" | "lightbulb" | "star" | "settings" | "shield" | "alert" | "code" | "chart" | "user", "label": "Key Idea Title"}]} (Exactly 4 items)
-   - "text-only": Use only if the content is purely narrative, a direct quote, or does not fit any of the structures above.
+- Diagram slides (non-text-only): body MUST have exactly 2-3 bullet points (max 60 words), explaining context. Do NOT repeat diagram labels.
+- Wrap 1-2 high-impact words in title with asterisks for italic emphasis (e.g. "Optimize your *code* structure").
 
-====== BODY RULES & CONTENT DENSITY ======
-- "text-only" slides: The body MUST contain exactly 3-4 clean bullet points (•) highlighting concrete, descriptive, and actionable details.
-- Diagram slides ("step-chain", "venn", "wheel", "concentric", "icon-grid", "code-block"): The body MUST contain exactly 2-3 bullet points (•) (max 60 words total) delivering practical theoretical context and explaining "why" or "how" the diagram works. Do NOT repeat diagram labels.
-
-====== HIGHLIGHTS ======
-Wrap exactly 1 or 2 high-impact focus words in the slide title with asterisks for italicized serif highlight emphasis (e.g. "Optimize your *code* structure").
-
-====== OUTPUT JSON SCHEMA ======
-Return your output as a single JSON object matching this schema:
-{
-  "slides": [
-    {
-      "type": "COVER" | "CONTENT" | "CLOSING",
-      "title": "headline text (*word* for italic accent)",
-      "body": "bullet points starting with •",
-      "order": 0,
-      "visualType": "text-only" | "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block",
-      "visualData": { ... } // Match schema for visualType above. Use empty object for text-only.
-    }
-  ]
-}
+OUTPUT JSON:
+{"slides":[{"type":"COVER"|"CONTENT"|"CLOSING","title":"headline (*word*)","body":"• bullet points","order":0,"visualType":"text-only"|"step-chain"|"venn"|"wheel"|"concentric"|"icon-grid"|"code-block"|"quote"|"stat"|"table","visualData":{}}]}
 
 Tone: "${tone}".
 ${focus ? `Focus: ${focus}.` : ""}
-
-Use only standard ASCII characters in JSON values (no non-breaking hyphens, no fancy quote marks).`;
+Use only standard ASCII characters in JSON values.`;
 
   // --- Preprocessing: detect code markers in article to reinforce code-block hints ---
   const codePatterns = [
@@ -100,14 +146,22 @@ Use only standard ASCII characters in JSON values (no non-breaking hyphens, no f
     : "";
   // --- End preprocessing ---
 
+  // Compress article text to fit within model token limit (~8000 TPM)
+  const MAX_TOTAL_TOKENS = 8000;
+  const MAX_OUTPUT_TOKENS = 4096;
+  const systemTokens = estimateTokens(systemPrompt) + 50; // prompt framing overhead
+  const maxArticleTokens = MAX_TOTAL_TOKENS - MAX_OUTPUT_TOKENS - systemTokens - 200; // 200 safety buffer
+  const compressedArticle = compressText(articleText, Math.max(maxArticleTokens, 500));
+
   try {
     const chatCompletion = await groq.chat.completions.create({
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Here is the blog article content:\n\n${articleText}${codeHint}` },
+        { role: "user", content: `Here is the blog article content:\n\n${compressedArticle}${codeHint}` },
       ],
       model: "openai/gpt-oss-120b",
       temperature: 0.3,
+      max_tokens: 4096,
     });
 
     const content = chatCompletion.choices[0]?.message?.content;
@@ -116,16 +170,7 @@ Use only standard ASCII characters in JSON values (no non-breaking hyphens, no f
     }
 
     let parsed: any;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No valid JSON found in response.");
-      }
-    }
+    parsed = tryParseJson(content);
 
     if (!parsed.slides || !Array.isArray(parsed.slides)) {
       throw new Error("Invalid response format: 'slides' array not found in JSON response.");
@@ -192,6 +237,7 @@ CRITICAL RULES:
       ],
       model: "openai/gpt-oss-120b",
       temperature: 0.3,
+      max_tokens: 2048,
     });
 
     const content = chatCompletion.choices[0]?.message?.content;
@@ -200,16 +246,7 @@ CRITICAL RULES:
     }
 
     let parsed: any;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No valid JSON found in regenerate response.");
-      }
-    }
+    parsed = tryParseJson(content);
 
     return {
       type: parsed.type === "COVER" || parsed.type === "CLOSING" ? parsed.type : "CONTENT",
@@ -223,7 +260,7 @@ CRITICAL RULES:
 }
 
 export async function fillVisualData(
-  visualType: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only",
+  visualType: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table",
   title: string,
   body: string
 ): Promise<any> {
@@ -237,13 +274,19 @@ export async function fillVisualData(
   if (visualType === "step-chain") {
     schemaDescription = `JSON object matching: {"steps": [{"number": 1, "label": "Short Step Label (2-4 words)", "description": "Short explanation (8-15 words)"}]} (generate exactly 3-4 steps)`;
   } else if (visualType === "venn") {
-    schemaDescription = `JSON Object matching: {"leftLabel": "Concept A (1-3 words)", "rightLabel": "Concept B (1-3 words)", "overlapLabel": "Shared overlap (1-3 words)"}`;
+    schemaDescription = `JSON Object matching: {"leftLabel": "Concept A (1-3 words)", "rightLabel": "Concept B (1-3 words)", "overlapLabel": "Shared overlap (1-3 words)", "leftPoints": ["unique trait 1 (≤8 words)", "unique trait 2 (≤8 words)"], "rightPoints": ["unique trait 1 (≤8 words)", "unique trait 2 (≤8 words)"]}`;
   } else if (visualType === "wheel") {
-    schemaDescription = `JSON Object matching: {"centerLabel": "Core Topic Label", "spokes": [{"label": "Spoke 1 Label"}, {"label": "Spoke 2 Label"}, {"label": "Spoke 3 Label"}, {"label": "Spoke 4 Label"}]}`;
+    schemaDescription = `JSON Object matching: {"centerLabel": "Core Topic Label", "spokes": [{"label": "Spoke 1 Label", "description": "one-line explanation (≤10 words)"}, {"label": "Spoke 2 Label", "description": "one-line explanation"}, {"label": "Spoke 3 Label", "description": "one-line explanation"}, {"label": "Spoke 4 Label", "description": "one-line explanation"}]}`;
   } else if (visualType === "concentric") {
     schemaDescription = `JSON Object matching: {"rings": [{"ringLabel": "Core Layer Label", "depth": 1}, {"ringLabel": "Middle Layer Label", "depth": 2}, {"ringLabel": "Outer Layer Label", "depth": 3}]} ordered from inner (depth 1) to outer (depth 3)`;
   } else if (visualType === "icon-grid") {
-    schemaDescription = `JSON Object matching: {"items": [{"icon": "Single letter or number (e.g. A, 1, $, #)", "label": "Short label (2-5 words)"}]} (generate exactly 4 items)`;
+    schemaDescription = `JSON Object matching: {"items": [{"icon": "Single letter or number (e.g. A, 1, $, #)", "label": "Short label (2-5 words)", "description": "One sentence ≤12 words explaining why it matters"}]} (generate 4-6 items)`;
+  } else if (visualType === "quote") {
+    schemaDescription = `JSON Object matching: {"quote": "The quoted text (1-2 sentences)", "attribution": "Name of the person being quoted", "role": "Their title or context (optional)"}`;
+  } else if (visualType === "stat") {
+    schemaDescription = `JSON Object matching: {"number": "The big statistic number (e.g. 80%, 2.5M, #1)", "label": "Short label describing what the number refers to (2-5 words)", "context": "Optional one-line context or source"}`;
+  } else if (visualType === "table") {
+    schemaDescription = `JSON Object matching: {"headers": ["", "Option A", "Option B"], "rows": [{"label": "Criteria 1", "values": ["Value A1", "Value B1"]}, {"label": "Criteria 2", "values": ["Value A2", "Value B2"]}]} (3-5 rows, 2-4 total columns including the label column). First header cell is always empty string.`;
   }
 
   const systemPrompt = `You are a structured data extraction specialist.
@@ -264,6 +307,7 @@ CRITICAL RULES:
       ],
       model: "openai/gpt-oss-120b",
       temperature: 0.3,
+      max_tokens: 1024,
     });
 
     const content = chatCompletion.choices[0]?.message?.content;
@@ -272,12 +316,8 @@ CRITICAL RULES:
     }
 
     try {
-      return JSON.parse(content);
+      return tryParseJson(content);
     } catch {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
       return {};
     }
   } catch (error: any) {

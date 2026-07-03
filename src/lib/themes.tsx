@@ -26,7 +26,7 @@ export interface RenderSlideInput {
   imageUrl?: string | null;
   imageLayout?: "background" | "inline";
   shapes?: Shape[];
-  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only";
+  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table";
   visualData?: any;
   websiteUrl?: string;
   scribble?: boolean;
@@ -83,7 +83,7 @@ const MouseCursorIcon = ({ color = "currentColor" }) => (
 
 // Warm Editorial theme hand-drawn transition arrows
 const HandDrawnArrowRight = () => (
-  <svg width="100" height="24" viewBox="0 0 100 24" fill="none" style={{ position: "absolute", bottom: "180px", right: "90px", zIndex: 10 }}>
+  <svg width="100" height="24" viewBox="0 0 100 24" fill="none" style={{ position: "absolute", bottom: "180px", right: "90px"}}>
     <path
       d="M10,12 C35,4 65,18 90,10"
       stroke="#1e1b18"
@@ -102,7 +102,7 @@ const HandDrawnArrowRight = () => (
 );
 
 const HandDrawnArrowLeft = () => (
-  <svg width="100" height="24" viewBox="0 0 100 24" fill="none" style={{ position: "absolute", bottom: "180px", left: "90px", zIndex: 10 }}>
+  <svg width="100" height="24" viewBox="0 0 100 24" fill="none" style={{ position: "absolute", bottom: "180px", left: "90px"}}>
     <path
       d="M90,12 C65,4 35,18 10,10"
       stroke="#1e1b18"
@@ -134,7 +134,7 @@ const PinkScribbleLine = ({ offsetX = 0 }: { offsetX?: number }) => (
 );
 
 const PinkScribbleOval = () => (
-  <svg width="280" height="72" viewBox="0 0 280 72" fill="none" style={{ position: "absolute", left: "-24px", top: "-16px", zIndex: -1 }}>
+  <svg width="280" height="72" viewBox="0 0 280 72" fill="none" style={{ position: "absolute", left: "-24px", top: "-16px"}}>
     <path
       d="M20,36 C20,18 130,10 250,20 C265,24 265,48 250,52 C130,62 20,54 20,36 Z"
       stroke="#ec4899"
@@ -372,55 +372,64 @@ const renderIcon = (name: string, color: string) => {
 const StepChain = ({ data, colors }: { data: any; colors: any }) => {
   const steps = data?.steps || [];
   if (!Array.isArray(steps) || steps.length === 0) return null;
+  const visibleSteps = steps.slice(0, 4);
   return (
-    <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", padding: "20px 0" }}>
-      {steps.slice(0, 4).map((step: any, idx: number) => (
-        <div
-          key={idx}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            flex: 1,
-            position: "relative",
-            backgroundColor: colors.glassBg || "rgba(255, 255, 255, 0.4)",
-            border: `1.5px solid ${colors.glassBorder || "rgba(0, 0, 0, 0.08)"}`,
-            borderRadius: "16px",
-            padding: "24px 16px",
-            margin: "0 10px",
-            boxSizing: "border-box",
-            minHeight: "220px",
-            marginTop: "20px",
-          }}
-        >
-          {/* Overlapping Badge */}
+    <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", padding: "20px 0", position: "relative" }}>
+      {visibleSteps.map((step: any, idx: number) => (
+        <div key={idx} style={{ display: "flex", flexDirection: "row", alignItems: "center", flex: 1 }}>
+          {/* Card */}
           <div
             style={{
-              position: "absolute",
-              top: "-25px",
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
-              width: "50px",
-              height: "50px",
-              borderRadius: "50%",
-              backgroundColor: colors.accent,
-              color: colors.accent === "#ffffff" ? "#050505" : "#ffffff",
-              fontSize: "20px",
-              fontWeight: "bold",
-              zIndex: 10,
-              border: `3px solid ${colors.accent === "#ffffff" ? "#050505" : (colors.background?.color || "#ffffff")}`,
+              flex: 1,
+              position: "relative",
+              backgroundColor: colors.glassBg || "rgba(255, 255, 255, 0.4)",
+              border: `1.5px solid ${colors.glassBorder || "rgba(0, 0, 0, 0.08)"}`,
+              borderRadius: "16px",
+              padding: "24px 16px",
+              boxSizing: "border-box",
+              minHeight: "220px",
+              marginTop: "20px",
             }}
           >
-            {step.number || (idx + 1)}
+            {/* Overlapping Badge */}
+            <div
+              style={{
+                position: "absolute",
+                top: "-25px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "50px",
+                height: "50px",
+                borderRadius: "50%",
+                backgroundColor: colors.accent,
+                color: colors.accent === "#ffffff" ? "#050505" : "#ffffff",
+                fontSize: "20px",
+                fontWeight: "bold",
+                border: `3px solid ${colors.accent === "#ffffff" ? "#050505" : (colors.background?.color || "#ffffff")}`,
+              }}
+            >
+              {step.number || (idx + 1)}
+            </div>
+            <span style={{ fontSize: "16px", fontWeight: "bold", textAlign: "center", color: colors.text, marginBottom: "8px", marginTop: "15px" }}>
+              {step.label}
+            </span>
+            <span style={{ fontSize: "13px", textAlign: "center", color: colors.muted, lineHeight: "1.4" }}>
+              {step.description}
+            </span>
           </div>
-
-          <span style={{ fontSize: "16px", fontWeight: "bold", textAlign: "center", color: colors.text, marginBottom: "8px", marginTop: "15px" }}>
-            {step.label}
-          </span>
-          <span style={{ fontSize: "13px", textAlign: "center", color: colors.muted, lineHeight: "1.4" }}>
-            {step.description}
-          </span>
+          {/* Connector Arrow between cards (not after last card) */}
+          {idx < visibleSteps.length - 1 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", flexShrink: 0, marginTop: "20px" }}>
+              <svg width="28" height="18" viewBox="0 0 28 18" fill="none">
+                <line x1="0" y1="9" x2="20" y2="9" stroke={colors.accent} strokeWidth="2" strokeDasharray="3,2" opacity="0.7" />
+                <path d="M16 3 L24 9 L16 15" stroke={colors.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+              </svg>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -432,32 +441,52 @@ const Venn = ({ data, colors }: { data: any; colors: any }) => {
   const leftLabel = data?.leftLabel || "Concept A";
   const rightLabel = data?.rightLabel || "Concept B";
   const overlapLabel = data?.overlapLabel || "Shared";
+  // Phase 1 new optional fields — gracefully fall back to empty array if absent (older cached data)
+  const leftPoints: string[] = Array.isArray(data?.leftPoints) ? data.leftPoints.slice(0, 2) : [];
+  const rightPoints: string[] = Array.isArray(data?.rightPoints) ? data.rightPoints.slice(0, 2) : [];
 
   const isDark = colors.text === "#ffffff" || colors.text === "#e5e5e5";
   const labelBg = isDark ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.95)";
+  const bodyTextColor = isDark ? "rgba(255,255,255,0.75)" : "rgba(30,30,30,0.75)";
 
   const textSize = 14;
   const smallTextSize = 12;
 
   return (
-    <div style={{ display: "flex", width: "100%", height: "340px", position: "relative", justifyContent: "center", alignItems: "center" }}>
-      <svg width="600" height="340" viewBox="0 0 600 340" fill="none" style={{ position: "absolute" }}>
+    <div style={{ display: "flex", width: "100%", height: "360px", position: "relative", justifyContent: "center", alignItems: "center" }}>
+      <svg width="620" height="360" viewBox="0 0 620 360" fill="none" style={{ position: "absolute" }}>
         {/* Left circle */}
-        <circle cx="210" cy="170" r="150" fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="3" opacity="0.9" />
+        <circle cx="215" cy="175" r="155" fill={colors.accent} fillOpacity="0.07" stroke={colors.accent} strokeWidth="2.5" opacity="0.9" />
         {/* Right circle */}
-        <circle cx="390" cy="170" r="150" fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="3" opacity="0.9" />
+        <circle cx="405" cy="175" r="155" fill={colors.accent} fillOpacity="0.07" stroke={colors.accent} strokeWidth="2.5" opacity="0.9" />
 
-        {/* Left label pill */}
-        <rect x="95" y="155" width="110" height="30" rx="15" fill={labelBg} stroke={colors.accent} strokeWidth="1.5" />
-        <text x="150" y="176" textAnchor="middle" fontFamily="Outfit" fontSize={leftLabel.length > 15 ? smallTextSize : textSize} fontWeight="700" fill={colors.text}>{leftLabel}</text>
+        {/* Overlap region — subtle accent fill to show intersection visually */}
+        <ellipse cx="310" cy="175" rx="55" ry="120" fill={colors.accent} fillOpacity="0.18" />
 
-        {/* Right label pill */}
-        <rect x="395" y="155" width="110" height="30" rx="15" fill={labelBg} stroke={colors.accent} strokeWidth="1.5" />
-        <text x="450" y="176" textAnchor="middle" fontFamily="Outfit" fontSize={rightLabel.length > 15 ? smallTextSize : textSize} fontWeight="700" fill={colors.text}>{rightLabel}</text>
+        {/* Left label pill — positioned in outer left zone */}
+        <rect x="60" y="155" width="115" height="30" rx="15" fill={labelBg} stroke={colors.accent} strokeWidth="1.5" />
+        <text x="117" y="176" textAnchor="middle" fontFamily="Outfit" fontSize={leftLabel.length > 15 ? smallTextSize : textSize} fontWeight="700" fill={colors.text}>{leftLabel}</text>
 
-        {/* Overlap label pill */}
-        <rect x="260" y="145" width="80" height="50" rx="14" fill={colors.accent} />
-        <text x="300" y="168" textAnchor="middle" fontFamily="Outfit" fontSize={overlapLabel.length > 12 ? smallTextSize : textSize} fontWeight="700" fill="#ffffff">{overlapLabel}</text>
+        {/* Right label pill — positioned in outer right zone */}
+        <rect x="445" y="155" width="115" height="30" rx="15" fill={labelBg} stroke={colors.accent} strokeWidth="1.5" />
+        <text x="502" y="176" textAnchor="middle" fontFamily="Outfit" fontSize={rightLabel.length > 15 ? smallTextSize : textSize} fontWeight="700" fill={colors.text}>{rightLabel}</text>
+
+        {/* Overlap label pill — center overlap zone */}
+        <rect x="268" y="148" width="84" height="54" rx="14" fill={colors.accent} />
+        <text x="310" y="170" textAnchor="middle" fontFamily="Outfit" fontSize={overlapLabel.length > 12 ? 10 : 12} fontWeight="700" fill="#ffffff">{overlapLabel.split(" ")[0]}</text>
+        {overlapLabel.split(" ").length > 1 && (
+          <text x="310" y="186" textAnchor="middle" fontFamily="Outfit" fontSize={10} fontWeight="600" fill="rgba(255,255,255,0.85)">{overlapLabel.split(" ").slice(1).join(" ")}</text>
+        )}
+
+        {/* Left circle body points — rendered inside the non-overlapping left zone */}
+        {leftPoints.map((pt, i) => (
+          <text key={i} x="117" y={220 + i * 20} textAnchor="middle" fontFamily="Outfit" fontSize="11" fontWeight="500" fill={bodyTextColor}>{pt.length > 18 ? pt.slice(0, 17) + "..." : pt}</text>
+        ))}
+
+        {/* Right circle body points — rendered inside the non-overlapping right zone */}
+        {rightPoints.map((pt, i) => (
+          <text key={i} x="502" y={220 + i * 20} textAnchor="middle" fontFamily="Outfit" fontSize="11" fontWeight="500" fill={bodyTextColor}>{pt.length > 18 ? pt.slice(0, 17) + "..." : pt}</text>
+        ))}
       </svg>
     </div>
   );
@@ -466,10 +495,15 @@ const Venn = ({ data, colors }: { data: any; colors: any }) => {
 const Wheel = ({ data, colors }: { data: any; colors: any }) => {
   if (!data?.centerLabel && (!data?.spokes || data.spokes.length === 0)) return null;
   const centerLabel = data?.centerLabel || "Core";
-  const spokes = data?.spokes || [];
-  
+  const spokes = (data?.spokes || []).slice(0, 6);
+  const spokeCount = spokes.length;
+
   const cx = 300;
   const cy = 180;
+  const spokeRadius = 145;
+  // Start at top (-90 degrees) and distribute evenly regardless of count (3, 4, 5, or 6)
+  const angleStep = (2 * Math.PI) / Math.max(spokeCount, 1);
+  const startAngle = -Math.PI / 2;
 
   const isDark = colors.text === "#ffffff" || colors.text === "#e5e5e5";
   const itemBg = isDark ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.92)";
@@ -477,13 +511,12 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
   return (
     <div style={{ display: "flex", width: "600px", height: "360px", position: "relative", justifyContent: "center", alignItems: "center" }}>
       <svg width="600" height="360" viewBox="0 0 600 360" fill="none" style={{ position: "absolute", top: 0, left: 0 }}>
-        {spokes.slice(0, 4).map((_: any, idx: number) => {
-          const rx = idx % 2 === 0 ? 160 : 0;
-          const ry = idx % 2 === 1 ? 115 : 0;
-          const ex = cx + (idx === 0 ? rx : idx === 2 ? -rx : 0);
-          const ey = cy + (idx === 1 ? ry : idx === 3 ? -ry : 0);
+        {spokes.map((_: any, idx: number) => {
+          const angle = startAngle + idx * angleStep;
+          const ex = cx + Math.cos(angle) * spokeRadius;
+          const ey = cy + Math.sin(angle) * spokeRadius;
           return (
-            <line key={idx} x1={cx} y1={cy} x2={ex} y2={ey} stroke={colors.accent} strokeWidth="3" opacity="0.35" />
+            <line key={idx} x1={cx} y1={cy} x2={ex} y2={ey} stroke={colors.accent} strokeWidth="2.5" opacity="0.35" />
           );
         })}
       </svg>
@@ -492,47 +525,57 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
       <div
         style={{
           position: "absolute",
-          left: `${cx - 65}px`,
-          top: `${cy - 65}px`,
-          width: "130px",
-          height: "130px",
+          left: `${cx - 58}px`,
+          top: `${cy - 58}px`,
+          width: "116px",
+          height: "116px",
           borderRadius: "50%",
           border: `4px solid ${colors.accent}`,
           backgroundColor: colors.background?.color || (isDark ? "#050505" : "#ffffff"),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          zIndex: 20,
-          padding: "12px",
+          padding: "10px",
           boxSizing: "border-box",
         }}
       >
-        <span style={{ fontSize: "15px", fontWeight: "bold", color: colors.text, textAlign: "center", lineHeight: "1.2" }}>{centerLabel}</span>
+        <span style={{ fontSize: "13px", fontWeight: "bold", color: colors.text, textAlign: "center", lineHeight: "1.2" }}>{centerLabel}</span>
       </div>
 
-      {spokes.slice(0, 4).map((spoke: any, idx: number) => {
-        const rx = idx % 2 === 0 ? 160 : 0;
-        const ry = idx % 2 === 1 ? 115 : 0;
-        const ex = cx + (idx === 0 ? rx : idx === 2 ? -rx : 0);
-        const ey = cy + (idx === 1 ? ry : idx === 3 ? -ry : 0);
+      {/* Dynamic spoke label cards — positioned at the spoke endpoint */}
+      {spokes.map((spoke: any, idx: number) => {
+        const angle = startAngle + idx * angleStep;
+        const ex = cx + Math.cos(angle) * spokeRadius;
+        const ey = cy + Math.sin(angle) * spokeRadius;
+        const cardW = spokeCount >= 5 ? 110 : 130;
+        const cardH = spoke.description ? 64 : 44;
         return (
           <div
             key={idx}
             style={{
               position: "absolute",
-              left: `${ex - 70}px`,
-              top: `${ey - 35}px`,
-              width: "140px",
-              height: "70px",
+              left: `${ex - cardW / 2}px`,
+              top: `${ey - cardH / 2}px`,
+              width: `${cardW}px`,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              zIndex: 10,
+              backgroundColor: itemBg,
+              padding: spoke.description ? "8px 10px" : "7px 10px",
+              borderRadius: "12px",
+              border: `1.5px solid ${colors.glassBorder || "rgba(0,0,0,0.1)"}`,
+              boxSizing: "border-box",
             }}
           >
-            <span style={{ fontSize: "13px", fontWeight: "bold", color: colors.text, textAlign: "center", backgroundColor: itemBg, padding: "8px 12px", borderRadius: "14px", border: `1.5px solid ${colors.glassBorder || "rgba(0,0,0,0.1)"}`, lineHeight: "1.3" }}>
+            <span style={{ fontSize: spokeCount >= 5 ? "11px" : "13px", fontWeight: "bold", color: colors.text, textAlign: "center", lineHeight: "1.3" }}>
               {spoke.label}
             </span>
+            {spoke.description && (
+              <span style={{ fontSize: "10px", color: colors.muted, textAlign: "center", lineHeight: "1.3", marginTop: "3px" }}>
+                {spoke.description.length > 30 ? spoke.description.slice(0, 28) + "..." : spoke.description}
+              </span>
+            )}
           </div>
         );
       })}
@@ -547,45 +590,71 @@ const Concentric = ({ data, colors }: { data: any; colors: any }) => {
   const sortedRings = [...rings].sort((a: any, b: any) => a.depth - b.depth);
   const cx = 300;
   const cy = 180;
+  // Radii for inner / middle / outer rings
+  const radii = [55, 100, 150];
 
   const isDark = colors.text === "#ffffff" || colors.text === "#e5e5e5";
   const labelBg = isDark ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.92)";
 
+  // Each ring label is positioned on the right edge of its ring with a short tick connector
+  // so the spatial depth order is immediately legible
+  const ringConfigs = [
+    { r: radii[0], accentFill: true,  tickX2Offset: 30, labelX: cx + radii[0] + 38, labelY: cy - 6 },
+    { r: radii[1], accentFill: false, tickX2Offset: 30, labelX: cx + radii[1] + 38, labelY: cy - 22 },
+    { r: radii[2], accentFill: false, tickX2Offset: 30, labelX: cx + radii[2] + 38, labelY: cy - 36 },
+  ];
+
   return (
-    <div style={{ display: "flex", width: "600px", height: "360px", position: "relative", justifyContent: "center", alignItems: "center" }}>
-      <svg width="600" height="360" viewBox="0 0 600 360" fill="none" style={{ position: "absolute", top: 0, left: 0 }}>
-        {/* Outer Ring Circle */}
-        <circle cx={cx} cy={cy} r="150" fill={colors.accent} fillOpacity="0.04" stroke={colors.accent} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.6" />
-        {/* Middle Ring Circle */}
-        <circle cx={cx} cy={cy} r="100" fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="2.5" opacity="0.8" />
-        {/* Inner Ring Circle */}
-        <circle cx={cx} cy={cy} r="55" fill={colors.accent} fillOpacity="0.15" stroke={colors.accent} strokeWidth="3.5" />
+    <div style={{ display: "flex", width: "620px", height: "360px", position: "relative", justifyContent: "center", alignItems: "center" }}>
+      <svg width="620" height="360" viewBox="0 0 620 360" fill="none" style={{ position: "absolute", top: 0, left: 0 }}>
+        {/* Ring circles */}
+        <circle cx={cx} cy={cy} r={radii[2]} fill={colors.accent} fillOpacity="0.04" stroke={colors.accent} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.6" />
+        <circle cx={cx} cy={cy} r={radii[1]} fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="2.5" opacity="0.8" />
+        <circle cx={cx} cy={cy} r={radii[0]} fill={colors.accent} fillOpacity="0.18" stroke={colors.accent} strokeWidth="3.5" />
+
+        {/* Tick connectors — short horizontal line from ring edge to label */}
+        {sortedRings.slice(0, 3).map((_: any, i: number) => {
+          const rc = ringConfigs[i];
+          const tickStartX = cx + rc.r;
+          return (
+            <line key={i} x1={tickStartX} y1={cy} x2={tickStartX + rc.tickX2Offset} y2={cy} stroke={colors.accent} strokeWidth="1.5" opacity="0.6" />
+          );
+        })}
       </svg>
 
-      {/* Concentric labels vertically stacked - with identical structure, padding, and text sizing for perfect consistency */}
-      {sortedRings[0] && (
-        <div style={{ position: "absolute", left: `${cx - 80}px`, top: `${cy - 18}px`, width: "160px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}>
-          <span style={{ fontSize: "13px", fontWeight: "bold", color: "#ffffff", backgroundColor: colors.accent, border: `1.5px solid ${colors.accent}`, padding: "6px 12px", borderRadius: "16px", textAlign: "center", width: "100%", boxSizing: "border-box", textShadow: "0 1px 2px rgba(0,0,0,0.15)" }}>
-            {sortedRings[0].ringLabel}
-          </span>
-        </div>
-      )}
-
-      {sortedRings[1] && (
-        <div style={{ position: "absolute", left: `${cx - 80}px`, top: `${cy - 90}px`, width: "160px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 20 }}>
-          <span style={{ fontSize: "13px", fontWeight: "bold", color: colors.text, backgroundColor: labelBg, border: `1.5px solid ${colors.glassBorder || "rgba(0,0,0,0.1)"}`, padding: "6px 12px", borderRadius: "16px", textAlign: "center", width: "100%", boxSizing: "border-box" }}>
-            {sortedRings[1].ringLabel}
-          </span>
-        </div>
-      )}
-
-      {sortedRings[2] && (
-        <div style={{ position: "absolute", left: `${cx - 80}px`, top: `${cy - 145}px`, width: "160px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
-          <span style={{ fontSize: "13px", fontWeight: "bold", color: colors.muted, backgroundColor: labelBg, border: `1.5px solid ${colors.glassBorder || "rgba(0,0,0,0.06)"}`, padding: "6px 12px", borderRadius: "16px", textAlign: "center", width: "100%", boxSizing: "border-box" }}>
-            {sortedRings[2].ringLabel}
-          </span>
-        </div>
-      )}
+      {/* Ring labels — positioned at the right edge of each ring */}
+      {sortedRings.slice(0, 3).map((ring: any, i: number) => {
+        const rc = ringConfigs[i];
+        const isInner = i === 0;
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${rc.labelX}px`,
+              top: `${rc.labelY - 12}px`,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: "bold",
+                color: isInner ? "#ffffff" : colors.text,
+                backgroundColor: isInner ? colors.accent : labelBg,
+                border: `1.5px solid ${isInner ? colors.accent : (colors.glassBorder || "rgba(0,0,0,0.1)")}`,
+                padding: "5px 10px",
+                borderRadius: "12px",
+                whiteSpace: "nowrap",
+                textShadow: isInner ? "0 1px 2px rgba(0,0,0,0.15)" : "none",
+              }}
+            >
+              {ring.ringLabel}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -593,51 +662,178 @@ const Concentric = ({ data, colors }: { data: any; colors: any }) => {
 const IconGrid = ({ data, colors }: { data: any; colors: any }) => {
   const items = data?.items || [];
   if (!Array.isArray(items) || items.length === 0) return null;
+  const visibleItems = items.slice(0, 6); // Support up to 6 items
+  // For 4 items: 2-column 2-row; for 5-6 items: 3-column 2-row with slightly smaller tiles
+  const is6Col = visibleItems.length >= 5;
+  const tileWidth = is6Col ? "30%" : "46%";
+  const tileMargin = is6Col ? "1% 1.5%" : "1.5% 2%";
+  const iconSize = is6Col ? 42 : 52;
+  const labelSize = is6Col ? "12px" : "14px";
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 0" }}>
-      {items.slice(0, 4).map((item: any, idx: number) => (
+    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", width: "100%", padding: "10px 0" }}>
+      {visibleItems.map((item: any, idx: number) => (
         <div
           key={idx}
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            width: "46%",
-            margin: "1.5% 2%",
-            padding: "20px 15px",
+            justifyContent: "flex-start",
+            width: tileWidth,
+            margin: tileMargin,
+            padding: is6Col ? "14px 10px" : "20px 15px",
             borderRadius: "18px",
             backgroundColor: colors.glassBg || "rgba(255, 255, 255, 0.4)",
             border: `1.5px solid ${colors.glassBorder || "rgba(0, 0, 0, 0.08)"}`,
             boxSizing: "border-box",
-            minHeight: "130px",
+            minHeight: is6Col ? "110px" : "130px",
           }}
         >
           <div
             style={{
-              width: "52px",
-              height: "52px",
+              width: `${iconSize}px`,
+              height: `${iconSize}px`,
               borderRadius: "50%",
               backgroundColor: colors.accent,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: "12px",
+              marginBottom: "10px",
+              flexShrink: 0,
               border: `2px solid ${colors.accent === "#ffffff" ? "#050505" : (colors.glassBorder || "rgba(255,255,255,0.2)")}`,
             }}
           >
             {(() => {
               const iconColor = colors.accent === "#ffffff" ? "#050505" : "#ffffff";
               return renderIcon(item.icon, iconColor) || (
-                <span style={{ fontSize: "24px", fontWeight: 700, color: iconColor }}>
+                <span style={{ fontSize: is6Col ? "18px" : "24px", fontWeight: 700, color: iconColor }}>
                   {(item.label || "?").charAt(0).toUpperCase()}
                 </span>
               );
             })()}
           </div>
-          <span style={{ fontSize: "14px", fontWeight: "bold", textAlign: "center", color: colors.text, lineHeight: "1.3" }}>{item.label}</span>
+          <span style={{ fontSize: labelSize, fontWeight: "bold", textAlign: "center", color: colors.text, lineHeight: "1.3", marginBottom: item.description ? "5px" : "0" }}>
+            {item.label}
+          </span>
+          {item.description && (
+            <span style={{ fontSize: "11px", textAlign: "center", color: colors.muted, lineHeight: "1.35" }}>
+              {item.description.length > 40 ? item.description.slice(0, 38) + "..." : item.description}
+            </span>
+          )}
         </div>
       ))}
+    </div>
+  );
+};
+
+// --- Quote Block (large stylized pull-quote) ---
+const QuoteBlock = ({ data, colors }: { data: any; colors: any }) => {
+  if (!data?.quote) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "30px 20px" }}>
+      <span style={{ fontSize: "80px", lineHeight: 1, color: colors.accent, opacity: 0.25, fontFamily: "Playfair Display, serif", marginBottom: "-10px", userSelect: "none" }}>"</span>
+      <p style={{ fontSize: "30px", fontFamily: "Playfair Display, serif", fontStyle: "italic", lineHeight: 1.45, color: colors.text, maxWidth: "800px", margin: "0" }}>
+        {data.quote}
+      </p>
+      {data.attribution && (
+        <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ width: "36px", height: "2px", backgroundColor: colors.accent, marginBottom: "10px", borderRadius: "1px" }} />
+          <span style={{ fontSize: "17px", fontWeight: 700, color: colors.accent }}>{data.attribution}</span>
+          {data.role && (
+            <span style={{ fontSize: "13px", color: colors.muted, marginTop: "3px" }}>{data.role}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Stat Display (big bold number with label) ---
+const StatDisplay = ({ data, colors }: { data: any; colors: any }) => {
+  if (!data?.number) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "20px" }}>
+      <span style={{ fontSize: "96px", fontWeight: 900, lineHeight: 1, color: colors.accent, letterSpacing: "-3px" }}>
+        {data.number}
+      </span>
+      {data.label && (
+        <span style={{ fontSize: "22px", fontWeight: 600, color: colors.text, marginTop: "16px", maxWidth: "600px", lineHeight: 1.3 }}>
+          {data.label}
+        </span>
+      )}
+      {data.context && (
+        <span style={{ fontSize: "15px", color: colors.muted, marginTop: "10px", maxWidth: "600px", lineHeight: 1.4 }}>
+          {data.context}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// --- Comparison Table (structured grid for side-by-side comparison) ---
+const TableBlock = ({ data, colors }: { data: any; colors: any }) => {
+  if (!data?.headers || !data?.rows) return null;
+  const numCols = data.headers.length;
+  const hasRowLabels = data.rows[0]?.label;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", padding: "10px 0", flexGrow: 1 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "16px", lineHeight: 1.3 }}>
+        <thead>
+          <tr>
+            {data.headers.map((h: string, i: number) => (
+              <th
+                key={i}
+                style={{
+                  textAlign: i === 0 ? "left" : "center",
+                  padding: "14px 12px",
+                  fontWeight: 800,
+                  fontSize: "18px",
+                  color: colors.accent,
+                  borderBottom: `3px solid ${colors.accent}`,
+                  borderRight: i < numCols - 1 ? `1px solid ${colors.accent}33` : "none",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.rows.map((row: any, ri: number) => (
+            <tr key={ri}>
+              <td
+                style={{
+                  padding: "14px 12px",
+                  fontWeight: 700,
+                  color: colors.text,
+                  borderBottom: `1px solid ${colors.text}1a`,
+                  borderRight: `1px solid ${colors.text}1a`,
+                  fontSize: "15px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {row.label}
+              </td>
+              {(row.values || []).map((v: string, vi: number) => (
+                <td
+                  key={vi}
+                  style={{
+                    padding: "14px 12px",
+                    textAlign: "center",
+                    color: colors.text,
+                    borderBottom: `1px solid ${colors.text}1a`,
+                    borderRight: vi < row.values.length - 1 ? `1px solid ${colors.text}1a` : "none",
+                    fontSize: "15px",
+                  }}
+                >
+                  {v}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
@@ -652,6 +848,9 @@ const renderDiagram = (
   if (visualType === "wheel") return <Wheel data={visualData} colors={colors} />;
   if (visualType === "concentric") return <Concentric data={visualData} colors={colors} />;
   if (visualType === "icon-grid") return <IconGrid data={visualData} colors={colors} />;
+  if (visualType === "quote") return <QuoteBlock data={visualData} colors={colors} />;
+  if (visualType === "stat") return <StatDisplay data={visualData} colors={colors} />;
+  if (visualType === "table") return <TableBlock data={visualData} colors={colors} />;
   return null;
 };
 
@@ -834,14 +1033,14 @@ const ScribbleOverlay = ({ order, totalSlides, theme }: { order: number; totalSl
     }
   }
 
-  return <div style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", pointerEvents: "none", zIndex: 30, display: "contents" }}>{elements}</div>;
+  return <div style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", pointerEvents: "none", display: "contents" }}>{elements}</div>;
 };
 
 // Overlay custom graphic shapes / diagrams
 const renderSlideShapes = (shapes?: Shape[]) => {
   if (!shapes || shapes.length === 0) return null;
   return (
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", pointerEvents: "none", zIndex: 25 }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", pointerEvents: "none"}}>
       {shapes.map((shape) => {
         const isText = shape.type === "text";
         return (
@@ -872,6 +1071,40 @@ const renderSlideShapes = (shapes?: Shape[]) => {
 };
 
 
+// 2.9 — Progress bar: 2px bar at the top edge of every slide, filled proportionally
+const ProgressBar = ({ order, totalSlides, accentColor }: { order: number; totalSlides: number; accentColor: string }) => {
+  const pct = totalSlides > 1 ? Math.round(((order + 1) / totalSlides) * 100) : 100;
+  return (
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "3px", display: "flex"}}>
+      <div style={{ width: `${pct}%`, height: "3px", backgroundColor: accentColor, opacity: 0.85 }} />
+    </div>
+  );
+};
+
+// 2.8 — Text-only bullet hierarchy: first bullet rendered larger/bolder in accent, rest in muted
+const renderBulletList = (
+  body: string,
+  accentColor: string,
+  textColor: string,
+  mutedColor: string,
+  bulletChar: string = "•",
+  isDark: boolean = false,
+  serifStyle?: React.CSSProperties,
+  codeStyle?: React.CSSProperties
+) => {
+  const lines = body.split("\n").filter(Boolean).map(l => l.replace(/^[•\-\*\s]+/, "").trim()).filter(Boolean);
+  return lines.map((line, idx) => {
+    const isLead = idx === 0;
+    return (
+      <div key={idx} style={{ display: "flex", alignItems: "flex-start", marginBottom: isLead ? "18px" : "12px" }}>
+        <span style={{ marginRight: "12px", flexShrink: 0, color: isLead ? accentColor : mutedColor, fontSize: isLead ? "22px" : "18px", fontWeight: "bold", lineHeight: 1.4 }}>{bulletChar}</span>
+        <p style={{ fontSize: isLead ? "26px" : "21px", color: isLead ? textColor : mutedColor, lineHeight: 1.5, margin: 0, fontWeight: isLead ? 700 : 400 }}>
+          {renderFormattedText(line, serifStyle || {}, {}, "flex-start", codeStyle)}
+        </p>
+      </div>
+    );
+  });
+};
 
 export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   const sanitizedTitle = sanitizeTextForSatori(slide.title);
@@ -947,15 +1180,17 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         })()}
 
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        {/* 2.9 Progress bar */}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor="#ffffff" />
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <span style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "4px", color: "#6e6e6e", textTransform: "uppercase" }}>
             {type === "COVER" ? "Introduction" : type === "CLOSING" ? "Action Item" : "Insight"}
           </span>
           <span style={{ fontSize: "14px", color: "#6e6e6e", fontWeight: 700, letterSpacing: "1px" }}>{pageLabel}</span>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, zIndex: 10, margin: "40px 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: "40px 0" }}>
           {type === "COVER" ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
               <h1 style={{ fontSize: "74px", fontWeight: 700, lineHeight: 1.15, marginBottom: "40px", letterSpacing: "-1.5px" }}>
@@ -966,16 +1201,18 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
               </p>
             </div>
           ) : type === "CLOSING" ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <span style={{ fontSize: "20px", color: "#8a8a8a", marginBottom: "25px", textTransform: "uppercase", letterSpacing: "5px", fontWeight: 700 }}>
-                Conclusion
-              </span>
-              <h1 style={{ fontSize: "62px", fontWeight: 700, lineHeight: 1.25, marginBottom: "50px", letterSpacing: "-1px" }}>
+            // Monochrome: full-width inverted block — sharp, high-contrast signature
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>
+              <div style={{ width: "80px", height: "3px", backgroundColor: "#ffffff", marginBottom: "40px" }} />
+              <span style={{ fontSize: "13px", color: "#5a5a5a", marginBottom: "20px", textTransform: "uppercase", letterSpacing: "6px", fontWeight: 700 }}>Conclusion</span>
+              <h1 style={{ fontSize: "60px", fontWeight: 900, lineHeight: 1.15, marginBottom: "50px", letterSpacing: "-1.5px", color: "#ffffff" }}>
                 {renderFormattedText(title, {}, {}, "center")}
               </h1>
-              <div style={{ padding: "18px 45px", border: "2px solid #ffffff", borderRadius: "9999px", display: "flex", alignItems: "center", backgroundColor: "#ffffff", color: "#000000" }}>
-                <span style={{ fontSize: "22px", fontWeight: 800, letterSpacing: "0.5px" }}>{body || "Let's discuss"}</span>
+              {/* Inverted pill CTA — white bg, black text — signature monochrome closer */}
+              <div style={{ padding: "20px 50px", backgroundColor: "#ffffff", borderRadius: "4px", display: "flex", alignItems: "center" }}>
+                <span style={{ fontSize: "22px", fontWeight: 900, color: "#000000", letterSpacing: "1px" }}>{body || "Let's discuss"}</span>
               </div>
+              <div style={{ width: "80px", height: "3px", backgroundColor: "#ffffff", marginTop: "40px" }} />
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", textAlign: "left" }}>
@@ -1014,7 +1251,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                       );
                     }
                   }
-                  return <p style={{ fontSize: "30px", color: "#cccccc", lineHeight: 1.6, fontWeight: 400 }}>{renderFormattedText(body)}</p>;
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, "#ffffff", "#ffffff", "#a3a3a3", "•", true, {}, darkCodeStyle)}</div>;
                 })()}
                 {imageUrl && imageLayout === "inline" && (
                   <img
@@ -1027,7 +1264,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
           )}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <span style={{ fontSize: "18px", fontWeight: 800, color: "#ffffff", letterSpacing: "1px" }}>
             {displayUsername}
           </span>
@@ -1068,6 +1305,8 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
 
         {/* Custom Diagram Shapes Overlay */}
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        {/* 2.9 Progress bar */}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor="#7c3aed" />
 
         <div
           style={{
@@ -1081,7 +1320,6 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
             width: "920px",
             height: "1190px",
             boxSizing: "border-box",
-            zIndex: 10,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1152,7 +1390,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                         );
                       }
                     }
-                    return <p style={{ fontSize: "26px", color: "#334155", lineHeight: 1.6 }}>{renderFormattedText(body, {}, {}, "flex-start", lightCodeStyle)}</p>;
+                    return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, "#7c3aed", "#0f172a", "#475569", "•", false, {}, lightCodeStyle)}</div>;
                   })()}
                   {imageUrl && imageLayout === "inline" && (
                     <img
@@ -1165,7 +1403,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
           )}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <span style={{ fontSize: "14px", fontWeight: 700, color: "#475569", letterSpacing: "1px" }}>
             {displayUsername}
           </span>
@@ -1206,9 +1444,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
 
         {/* Custom Diagram Shapes Overlay */}
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        {/* 2.9 Progress bar */}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor="#ff5d2b" />
 
         {/* Top Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start"}}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ fontSize: "14px", fontWeight: 800, color: "#e05a47", letterSpacing: "2px", textTransform: "uppercase" }}>
               {displayUsername ? displayUsername.replace("@", "") : "CARO"}
@@ -1218,7 +1458,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
 
         {/* Content Box */}
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, zIndex: 10, margin: "30px 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: "30px 0" }}>
           {type === "COVER" ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
               <span style={{ fontSize: "16px", fontWeight: 800, color: "#e05a47", textTransform: "uppercase", letterSpacing: "3px", marginBottom: "20px" }}>
@@ -1232,18 +1472,18 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
               </p>
             </div>
           ) : type === "CLOSING" ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              {/* Circular placeholder avatar mockup */}
-              <div style={{ width: "80px", height: "80px", borderRadius: "50%", backgroundColor: "#e05a47", display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: "28px", fontWeight: 900, marginBottom: "25px" }}>
-                {displayUsername ? displayUsername.replace("@", "").substring(0, 1).toUpperCase() : "C"}
-              </div>
-              <h1 style={{ fontSize: "66px", fontWeight: 700, fontFamily: "Playfair Display", lineHeight: 1.2, marginBottom: "45px", color: "#1e1b18" }}>
-                {renderFormattedText(title, { color: "#e05a47" }, {}, "center")}
+            // Mesh Glow: glowing neon pill CTA — dark bg, neon border glow
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>
+              <span style={{ fontSize: "13px", color: "rgba(255,93,43,0.6)", marginBottom: "20px", textTransform: "uppercase", letterSpacing: "5px", fontWeight: 700 }}>Wrap Up</span>
+              <h1 style={{ fontSize: "58px", fontWeight: 800, lineHeight: 1.2, marginBottom: "40px", letterSpacing: "-1px", color: "#ffffff" }}>
+                {renderFormattedText(title, { color: "#ff5d2b" }, {}, "center")}
               </h1>
-              <div style={{ borderBottom: "3px solid #e05a47", paddingBottom: "10px", display: "flex" }}>
-                <span style={{ fontSize: "24px", fontWeight: 800, color: "#e05a47", letterSpacing: "1px", textTransform: "uppercase" }}>
-                  {body || "Save This Roadmap"}
-                </span>
+              {/* Neon pill with outer glow effect */}
+              <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ position: "absolute", inset: "-8px", borderRadius: "9999px", background: "rgba(255, 93, 43, 0.25)", filter: "blur(12px)" }} />
+                <div style={{ padding: "18px 48px", border: "2px solid #ff5d2b", borderRadius: "9999px", backgroundColor: "rgba(255,93,43,0.08)", display: "flex", alignItems: "center", position: "relative"}}>
+                  <span style={{ fontSize: "20px", fontWeight: 800, color: "#ff5d2b", letterSpacing: "0.5px" }}>{body || "Follow for more"}</span>
+                </div>
               </div>
             </div>
           ) : (
@@ -1286,7 +1526,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                       );
                     }
                   }
-                  return <p style={{ fontSize: "28px", color: "#3d3630", lineHeight: 1.6 }}>{renderFormattedText(body, {}, {}, "flex-start", lightCodeStyle)}</p>;
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, "#ff5d2b", "#1c1512", "#6b6360", "•", false, {}, lightCodeStyle)}</div>;
                 })()}
                 {imageUrl && imageLayout === "inline" && (
                   <img
@@ -1299,7 +1539,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
           )}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <span style={{ fontSize: "16px", fontWeight: 700, color: "#6b6259", letterSpacing: "1px" }}>
             {displayUsername}
           </span>
@@ -1338,9 +1578,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
 
         {/* Custom Diagram Shapes Overlay */}
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        {/* 2.9 Progress bar */}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor="#e8673a" />
 
         {/* Top Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           {/* Blue Asterisk Accent Logo */}
           <div style={{ display: "flex", alignItems: "center" }}>
             <span style={{ fontSize: "42px", fontWeight: 800, color: "#3b82f6", transform: "translateY(-6px)" }}>
@@ -1350,7 +1592,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
 
         {/* Content Box */}
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, zIndex: 10, margin: "40px 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: "40px 0" }}>
           {type === "COVER" ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
               <h1 style={{ fontSize: "78px", fontWeight: 900, lineHeight: 1.05, marginBottom: "40px", letterSpacing: "-2px", color: "#0a0a0a" }}>
@@ -1366,14 +1608,18 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
               </div>
             </div>
           ) : type === "CLOSING" ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", position: "relative" }}>
-              
-              <h1 style={{ fontSize: "68px", fontWeight: 900, lineHeight: 1.15, marginBottom: "35px", letterSpacing: "-1px" }}>
-                {renderFormattedText(title)}
+            // Warm Editorial: serif pull-quote closer with thin divider rule
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", width: "100%", paddingLeft: "10px" }}>
+              <div style={{ width: "60px", height: "2px", backgroundColor: "#e8673a", marginBottom: "32px" }} />
+              <span style={{ fontSize: "13px", color: "#9d8976", marginBottom: "16px", textTransform: "uppercase", letterSpacing: "5px", fontWeight: 700 }}>Final Take</span>
+              <h1 style={{ fontSize: "54px", fontWeight: 900, lineHeight: 1.15, marginBottom: "36px", letterSpacing: "-1px", color: "#1c1612", fontFamily: "Playfair Display, serif" }}>
+                {renderFormattedText(title, { color: "#e8673a" }, {}, "flex-start")}
               </h1>
-              <p style={{ fontSize: "28px", color: "#374151", lineHeight: 1.5, maxWidth: "780px" }}>
-                {renderFormattedText(body, {}, {}, "flex-start", lightCodeStyle)}
-              </p>
+              <div style={{ width: "100%", height: "1px", backgroundColor: "rgba(232,103,58,0.25)", marginBottom: "28px" }} />
+              {/* Serif pull-quote pill */}
+              <div style={{ padding: "14px 32px", border: "1.5px solid #e8673a", borderRadius: "6px", display: "flex", alignItems: "center", backgroundColor: "rgba(232,103,58,0.06)" }}>
+                <span style={{ fontSize: "18px", fontWeight: 700, color: "#e8673a", fontStyle: "italic" }}>{body || "Share this insight →"}</span>
+              </div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", textAlign: "left" }}>
@@ -1421,7 +1667,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                       );
                     }
                   }
-                  return <p style={{ fontSize: "28px", color: "#374151", lineHeight: 1.6 }}>{renderFormattedText(body, {}, {}, "flex-start", lightCodeStyle, { scribble, color: scribbleColor, fontSize: 28 })}</p>;
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, "#e8673a", "#1c1612", "#6b6058", "•", false, {}, lightCodeStyle)}</div>;
                 })()}
                 {imageUrl && imageLayout === "inline" && (
                   <img
@@ -1436,7 +1682,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <span style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "1.5px", color: "#4b5563", textTransform: "uppercase" }}>
             {websiteUrl || "reallygreatsite.com"}
           </span>
@@ -1475,6 +1721,8 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
 
         {/* Custom Diagram Shapes Overlay */}
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        {/* 2.9 Progress bar */}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor="#ea580c" />
 
         {/* corner accent brackets */}
         {!hasBgImage && (() => {
@@ -1498,7 +1746,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         })()}
 
         {/* Top Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <div style={{ display: "flex", backgroundColor: "rgba(20, 20, 20, 0.8)", border: "1.5px solid rgba(255,255,255,0.15)", borderRadius: "9999px", padding: "6px 16px" }}>
             <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#a3a3a3" }}>
               {type === "COVER" ? "Introduction" : type === "CLOSING" ? "Roadmap" : `Step ${order}`}
@@ -1508,7 +1756,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
 
         {/* Content Box */}
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, zIndex: 10, margin: "40px 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: "40px 0" }}>
           {type === "COVER" ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
               <h1 style={{ fontSize: "74px", fontWeight: 700, lineHeight: 1.15, marginBottom: "40px", letterSpacing: "-1.5px", textTransform: "uppercase" }}>
@@ -1521,15 +1769,26 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
               </div>
             </div>
           ) : type === "CLOSING" ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <span style={{ fontSize: "16px", color: "rgba(255, 255, 255, 0.4)", marginBottom: "25px", textTransform: "uppercase", letterSpacing: "4px", fontWeight: 700 }}>
-                Conclusion
-              </span>
-              <h1 style={{ fontSize: "62px", fontWeight: 700, lineHeight: 1.25, marginBottom: "50px", letterSpacing: "-1px", textTransform: "uppercase" }}>
+            // Cyber Horizon: scanline grid overlay on a dark CTA — grid + mono text
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%", position: "relative" }}>
+              <span style={{ fontSize: "12px", color: "rgba(234,88,12,0.7)", marginBottom: "22px", textTransform: "uppercase", letterSpacing: "6px", fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>// END TRANSMISSION</span>
+              <h1 style={{ fontSize: "56px", fontWeight: 900, lineHeight: 1.15, marginBottom: "40px", letterSpacing: "-1px", color: "#ffffff", fontFamily: "JetBrains Mono, monospace" }}>
                 {renderFormattedText(title, { color: "#ea580c" }, {}, "center")}
               </h1>
-              <div style={{ padding: "18px 45px", border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: "9999px", display: "flex", alignItems: "center", backgroundColor: "#ffffff", color: "#000000" }}>
-                <span style={{ fontSize: "22px", fontWeight: 800, letterSpacing: "0.5px" }}>{body || "Let's connect"}</span>
+              {/* Scanline grid CTA button */}
+              <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {/* Grid overlay using SVG pattern */}
+                <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.2 }} viewBox="0 0 200 56" preserveAspectRatio="none">
+                  <defs>
+                    <pattern id="grid" width="8" height="8" patternUnits="userSpaceOnUse">
+                      <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#ea580c" strokeWidth="0.5"/>
+                    </pattern>
+                  </defs>
+                  <rect width="200" height="56" fill="url(#grid)" rx="6" />
+                </svg>
+                <div style={{ padding: "16px 44px", border: "1.5px solid #ea580c", borderRadius: "6px", backgroundColor: "rgba(234,88,12,0.1)", display: "flex", alignItems: "center", position: "relative"}}>
+                  <span style={{ fontSize: "18px", fontWeight: 700, color: "#ea580c", fontFamily: "JetBrains Mono, monospace", letterSpacing: "1px" }}>{body || "$ follow --now"}</span>
+                </div>
               </div>
             </div>
           ) : (
@@ -1569,7 +1828,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                       );
                     }
                   }
-                  return <p style={{ fontSize: "28px", color: "#cccccc", lineHeight: 1.6, fontWeight: 400 }}>{renderFormattedText(body, { color: "#ea580c" })}</p>;
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, "#ea580c", "#cccccc", "#a3a3a3", "•", true, { color: "#ea580c" }, darkCodeStyle)}</div>;
                 })()}
                 {imageUrl && imageLayout === "inline" && (
                   <img
@@ -1584,7 +1843,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <div style={{ display: "flex", backgroundColor: "rgba(20, 20, 20, 0.8)", border: "1.5px solid rgba(255,255,255,0.15)", borderRadius: "9999px", padding: "6px 16px" }}>
             <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "1px", color: "#ffffff" }}>
               {displayUsername || "cyber-horizon"}
@@ -1649,9 +1908,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
 
         {/* Custom Diagram Shapes Overlay */}
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        {/* 2.9 Progress bar */}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor="#c5563c" />
 
         {/* Top Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <span style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "2px", textTransform: "uppercase", color: "rgba(46, 43, 42, 0.55)" }}>
             {type === "COVER" ? "* Overview" : type === "CLOSING" ? "* Wrap-up" : `* Insight ${order}`}
           </span>
@@ -1659,7 +1920,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
 
         {/* Content Box */}
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, zIndex: 10, margin: "40px 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: "40px 0" }}>
           {type === "COVER" ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left" }}>
               <h1 style={{ fontSize: "74px", fontWeight: 700, lineHeight: 1.15, marginBottom: "30px", letterSpacing: "-1px", color: "#2e2b2a" }}>
@@ -1671,15 +1932,17 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
               </p>
             </div>
           ) : type === "CLOSING" ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left" }}>
-              <span style={{ fontSize: "32px", fontFamily: "Caveat", color: "#c5563c", marginBottom: "15px" }}>
-                Next Steps...
-              </span>
-              <h1 style={{ fontSize: "64px", fontWeight: 700, lineHeight: 1.2, marginBottom: "40px", color: "#2e2b2a" }}>
-                {renderFormattedText(title, { fontFamily: "Caveat", fontSize: "74px", color: "#c5563c", fontWeight: 400, fontStyle: "normal" })}
+            // Linen & Rust: hand-written Caveat-font closer with warm texture rule
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>
+              <span style={{ fontSize: "14px", color: "#9d8471", marginBottom: "20px", textTransform: "uppercase", letterSpacing: "5px", fontWeight: 700 }}>One Last Thing</span>
+              <h1 style={{ fontSize: "58px", fontWeight: 700, lineHeight: 1.2, marginBottom: "36px", letterSpacing: "-0.5px", color: "#1c1612", fontFamily: "Playfair Display, serif" }}>
+                {renderFormattedText(title, { color: "#c5563c" }, {}, "center")}
               </h1>
-              <div style={{ padding: "14px 35px", border: "2px solid #c5563c", borderRadius: "4px", display: "flex", alignItems: "center", backgroundColor: "transparent", color: "#c5563c" }}>
-                <span style={{ fontSize: "20px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>{body || "Join the conversation"}</span>
+              {/* Linen rule */}
+              <div style={{ width: "100px", height: "2px", background: "linear-gradient(to right, transparent, #c5563c, transparent)", marginBottom: "32px" }} />
+              {/* Caveat hand-written CTA pill */}
+              <div style={{ padding: "18px 50px", border: "2px solid #c5563c", borderRadius: "9999px", backgroundColor: "rgba(197,86,60,0.07)", display: "flex", alignItems: "center" }}>
+                <span style={{ fontSize: "26px", fontWeight: 700, color: "#c5563c", fontFamily: "Caveat, cursive" }}>{body || "Share with someone this helps"}</span>
               </div>
             </div>
           ) : (
@@ -1745,7 +2008,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
           <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "1px", color: "rgba(46, 43, 42, 0.45)" }}>
             {displayUsername || "linen-rust"}
           </span>

@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import type { CanvasElement } from "@/components/CanvasEditor";
+import { StageErrorBoundary } from "@/components/StageErrorBoundary";
+
+const CanvasEditor = dynamic(() => import("@/components/CanvasEditor"), { ssr: false });
+
 import {
   Sparkles,
   ArrowRight,
@@ -50,8 +56,11 @@ interface Slide {
   imageUrl?: string | null;
   imageLayout?: "background" | "inline";
   shapes?: Shape[];
-  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "text-only";
+  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table";
   visualData?: any;
+  elements?: CanvasElement[];
+  manuallyEdited?: boolean;
+  canvasPngUrl?: string;
 }
 
 const TONES = [
@@ -107,6 +116,15 @@ const convertBase64PngToJpg = (pngBase64Uri: string): Promise<string> => {
   });
 };
 
+const sanitizeFilename = (name: string): string => {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 50)
+    || "slide";
+};
+
 export default function Home() {
   // Wizard flow state & Gating
   const [step, setStep] = useState<number>(1);
@@ -141,7 +159,7 @@ export default function Home() {
   activeThemeRef.current = themeName;
   const [username, setUsername] = useState<string>("");
   const [isRendering, setIsRendering] = useState<boolean>(false);
-  const [exportFormat, setExportFormat] = useState<"png" | "jpg">("png");
+  const [exportFormat, setExportFormat] = useState<"png" | "jpeg" | "pdf">("png");
   const [websiteUrl, setWebsiteUrl] = useState<string>("");
   const [showWebsiteModal, setShowWebsiteModal] = useState<boolean>(false);
   const [scribble, setScribble] = useState<boolean>(false);
@@ -159,6 +177,9 @@ export default function Home() {
   
   const [editingSlideIdx, setEditingSlideIdx] = useState<number | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [isCanvasEditorOpen, setIsCanvasEditorOpen] = useState<boolean>(false);
+  const [isRegeneratingAll, setIsRegeneratingAll] = useState<boolean>(false);
+  const [showRegenerateAllConfirm, setShowRegenerateAllConfirm] = useState<boolean>(false);
 
   // Social Preview State
   const [viewMode, setViewMode] = useState<"grid" | "social">("grid");
@@ -256,25 +277,14 @@ export default function Home() {
     );
   };
 
-  // Re-trigger rendering on step 4 transition — renders active palette first, then others sequentially
+  // Re-trigger rendering on step 4 transition — renders only the active theme
   useEffect(() => {
     if (step === 4) {
       setAllThemeImages({});
       setThemeLoadingStates({});
       
       const renderSequence = async () => {
-        // 1. Render current active theme first (focus resources here)
         await handleRender();
-        
-        // 2. Render other themes in the background sequentially (no concurrency overload)
-        const currentTheme = activeThemeRef.current;
-        const otherThemes = PALETTE_INFO.filter(p => p.name !== currentTheme);
-        for (const p of otherThemes) {
-          // Verify user hasn't switched steps or changed the theme mid-loop
-          if (step === 4 && currentTheme === activeThemeRef.current) {
-            await renderTheme(p.name);
-          }
-        }
       };
 
       renderSequence();
@@ -302,17 +312,28 @@ export default function Home() {
       return;
     }
 
-    if (!url || !url.startsWith("http")) {
-      setError("Please enter a valid HTTP/HTTPS URL.");
+    if (!url) {
+      setError("Please enter a URL.");
+      return;
+    }
+    try {
+      new URL(url);
+    } catch {
+      setError("Please enter a valid URL (must include http:// or https://).");
       return;
     }
 
     setIsExtracting(true);
     try {
+      // For Medium articles, route through Freedium mirror to bypass paywall
+      const extractUrl = url.match(/medium\.com/) 
+        ? `https://freedium-mirror.cfd/${url}`
+        : url;
+
       const res = await fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url: extractUrl })
       });
       
       const result = await res.json();
@@ -418,9 +439,16 @@ export default function Home() {
     } catch (err) {
       console.error("Failed to change visual type:", err);
       updated[index].visualData = null;
+      setError("Failed to generate visual data for this slide. Try again.");
     }
     setSlides(updated);
     saveDraftLocally(updated);
+
+    // Re-render if already on Stage 4
+    if (step === 4) {
+      setAllThemeImages({});
+      await handleRender();
+    }
   };
 
   // ==========================================
@@ -450,10 +478,9 @@ export default function Home() {
     saveDraftLocally(updated);
   };
 
-  const handleRegenerateBlock = async (index: number) => {
+  const handleRegenerateBlock = async (index: number, instructionOverride?: string) => {
     const target = slides[index];
-    const instruction = aiInstructions[target.id] || "";
-    if (!instruction || instruction.trim().length < 2) return;
+    const instruction = instructionOverride ?? (aiInstructions[target.id] || "");
     
     const targetId = target.id;
     setIsRegenerating(prev => ({ ...prev, [targetId]: true }));
@@ -594,8 +621,6 @@ export default function Home() {
     const approved = slides.filter(s => s.approved);
     if (approved.length === 0) return null;
 
-    if (allThemeImages[theme]) return allThemeImages[theme];
-
     setThemeLoadingStates(prev => ({ ...prev, [theme]: true }));
 
     try {
@@ -604,27 +629,64 @@ export default function Home() {
         setRenderedImages([...renderedList]);
       }
 
-      for (let i = 0; i < approved.length; i++) {
+      // Split approved slides into AI-renderable and canvas-edited
+      const nonCanvasSlides = approved.filter(s => !s.manuallyEdited);
+      const canvasSlides = approved.filter(s => s.manuallyEdited && s.canvasPngUrl);
+
+      // Single batched API call for non-canvas-edited slides only
+      const aiSlides = nonCanvasSlides.map(s => ({
+        type: s.type,
+        title: s.userTitle,
+        body: s.userBody,
+        imageUrl: s.imageUrl || null,
+        imageLayout: s.imageLayout || "inline",
+        shapes: s.shapes || [],
+        visualType: s.visualType || "text-only",
+        visualData: s.visualData || null,
+      }));
+
+      let apiResults: string[] = [];
+      if (aiSlides.length > 0) {
         const res = await fetch("/api/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...buildRenderPayload(),
+            slides: aiSlides,
             themeName: theme,
-            slideIndex: i,
+            username,
+            websiteUrl,
+            scribble,
           })
         });
 
         const result = await res.json();
         if (!result.success) throw new Error(result.error);
+        apiResults = result.data.images;
 
-        renderedList[i] = result.data.image;
-        if (theme === activeThemeRef.current) {
-          setRenderedImages([...renderedList]);
+        // Warn about per-slide render failures without throwing
+        if (result.data.errors?.length) {
+          const failedSlides = result.data.errors.map((e: any) => `#${e.index + 1}`).join(", ");
+          console.warn("[Render] Per-slide failures:", result.data.errors);
+          setError(`Slides ${failedSlides} failed to render and will show a placeholder. Try regenerating those slides.`);
+        }
+      }
+
+      // Merge: canvas-edited slides use their PNG, non-canvas use API results in order
+      let apiIdx = 0;
+      for (let i = 0; i < approved.length; i++) {
+        if (approved[i].manuallyEdited && approved[i].canvasPngUrl) {
+          renderedList[i] = approved[i].canvasPngUrl;
+        } else {
+          renderedList[i] = apiResults[apiIdx] || renderedList[i];
+          apiIdx++;
         }
       }
 
       setAllThemeImages(prev => ({ ...prev, [theme]: renderedList }));
+      if (theme === activeThemeRef.current) {
+        setRenderedImages([...renderedList]);
+      }
+
       return renderedList;
     } catch (err: any) {
       setError(err.message || `Failed to render "${theme}" theme.`);
@@ -707,8 +769,7 @@ export default function Home() {
       
       await handleRender();
       
-      setEditingSlideIdx(newSlideIdxInApproved);
-      setIsEditModalOpen(true);
+      openCanvasEditor(newSlideIdxInApproved);
     }, 150);
   };
 
@@ -716,6 +777,12 @@ export default function Home() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, slideIdxInApproved: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Unsupported file type. Please use PNG, JPEG, WebP, or GIF.");
+      return;
+    }
 
     if (file.size > 2 * 1024 * 1024) {
       setError("Image size exceeds 2MB limit.");
@@ -789,6 +856,167 @@ export default function Home() {
     saveDraftLocally(updated);
   };
 
+  // ==========================================
+  // CANVAS EDITOR: auto-generate elements from slide content
+  // ==========================================
+  const autoGenerateElements = (slide: Slide): CanvasElement[] => {
+    const elements: CanvasElement[] = [];
+    elements.push({
+      id: `el_title_${slide.id}`,
+      type: "text",
+      x: 60,
+      y: 60,
+      width: 960,
+      height: 120,
+      rotation: 0,
+      content: slide.userTitle || slide.aiTitle || "Title",
+      fontFamily: "Outfit",
+      fontSize: 72,
+      fontWeight: "800",
+      color: "#000000",
+      textAlign: "center",
+      fontStyle: "normal",
+    });
+    elements.push({
+      id: `el_body_${slide.id}`,
+      type: "text",
+      x: 60,
+      y: 220,
+      width: 960,
+      height: 300,
+      rotation: 0,
+      content: slide.userBody || slide.aiBody || "Body content",
+      fontFamily: "Outfit",
+      fontSize: 36,
+      fontWeight: "400",
+      color: "#333333",
+      textAlign: "left",
+      fontStyle: "normal",
+    });
+    if (slide.imageUrl) {
+      elements.push({
+        id: `el_image_${slide.id}`,
+        type: "image",
+        x: 200,
+        y: 600,
+        width: 680,
+        height: 500,
+        rotation: 0,
+        src: slide.imageUrl,
+        borderRadius: 16,
+        strokeColor: "#000000",
+        strokeWidth: 0,
+      });
+    }
+    return elements;
+  };
+
+  const openCanvasEditor = (approvedIdx: number) => {
+    const approved = slides.filter(s => s.approved);
+    const target = approved[approvedIdx];
+    if (!target) return;
+    const baseIdx = slides.findIndex(s => s.id === target.id);
+    if (baseIdx === -1) return;
+
+    // Auto-generate elements if not yet created
+    if (!slides[baseIdx].elements || slides[baseIdx].elements!.length === 0) {
+      const updated = [...slides];
+      updated[baseIdx].elements = autoGenerateElements(slides[baseIdx]);
+      setSlides(updated);
+    }
+
+    setEditingSlideIdx(approvedIdx);
+    setIsCanvasEditorOpen(true);
+  };
+
+  const handleCanvasEditorSave = (elements: CanvasElement[], pngDataUrl: string) => {
+    const approved = slides.filter(s => s.approved);
+    const target = approved[editingSlideIdx!];
+    if (!target) return;
+    const baseIdx = slides.findIndex(s => s.id === target.id);
+    if (baseIdx === -1) return;
+
+    const updated = [...slides];
+    updated[baseIdx].elements = elements;
+    updated[baseIdx].manuallyEdited = true;
+    updated[baseIdx].canvasPngUrl = pngDataUrl;
+    updated[baseIdx].isEdited = true;
+    setSlides(updated);
+    saveDraftLocally(updated);
+
+    // Update rendered image in stage 4 immediately
+    if (step === 4) {
+      const approvedSlides = updated.filter(s => s.approved);
+      const approvedIdx = approvedSlides.findIndex(s => s.id === target.id);
+      if (approvedIdx !== -1) {
+        const newRendered = [...renderedImages];
+        newRendered[approvedIdx] = pngDataUrl;
+        setRenderedImages(newRendered);
+        const newThemeImages = { ...allThemeImages[themeName] || [] };
+        if (Array.isArray(newThemeImages)) {
+          newThemeImages[approvedIdx] = pngDataUrl;
+          setAllThemeImages(prev => ({ ...prev, [themeName]: newThemeImages }));
+        }
+      }
+    }
+
+    setIsCanvasEditorOpen(false);
+    setEditingSlideIdx(null);
+  };
+
+  // ==========================================
+  // STAGE 2: Regenerate All
+  // ==========================================
+  const handleRegenerateAll = async () => {
+    if (!extractedData) return;
+    setShowRegenerateAllConfirm(false);
+    setIsRegeneratingAll(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/plan-slides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: extractedData.content,
+          tone: preferences.tone,
+          focus: preferences.focus,
+          slideCount: preferences.slideCount
+        })
+      });
+
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.error || "Failed to regenerate slides.");
+      }
+
+      const formatted: Slide[] = result.data.slides.map((s: any, idx: number) => {
+        const vType = s.type === "COVER" || s.type === "CLOSING" ? "text-only" : (s.visualType || "text-only");
+        return {
+          id: `slide_${Math.random().toString(36).substr(2, 9)}`,
+          type: s.type,
+          order: idx,
+          approved: false,
+          aiTitle: s.title,
+          aiBody: s.body,
+          userTitle: s.title,
+          userBody: s.body,
+          isEdited: false,
+          shapes: [],
+          visualType: vType,
+          visualData: s.visualData || null
+        };
+      });
+
+      setSlides(formatted);
+      saveDraftLocally(formatted);
+    } catch (err: any) {
+      setError(err.message || "Failed to regenerate all slides.");
+    } finally {
+      setIsRegeneratingAll(false);
+    }
+  };
+
   // ZIP export
   const handleExportZip = async () => {
     const indicesToExport = Object.keys(selectedForExport)
@@ -804,11 +1032,12 @@ export default function Home() {
     setError(null);
 
     try {
+      const approvedExport = slides.filter(s => s.approved);
       const payloadImages = await Promise.all(
         indicesToExport.map(async (idx) => {
           let dataUri = renderedImages[idx];
           let ext = "png";
-          if (exportFormat === "jpg") {
+          if (exportFormat === "jpeg") {
             try {
               dataUri = await convertBase64PngToJpg(dataUri);
               ext = "jpg";
@@ -816,8 +1045,10 @@ export default function Home() {
               console.error(`Failed to convert slide ${idx + 1} to JPG:`, err);
             }
           }
+          const slide = approvedExport[idx];
+          const slideName = slide?.userTitle ? sanitizeFilename(slide.userTitle) : `slide-${idx + 1}`;
           return {
-            fileName: `slide_${idx + 1}.${ext}`,
+            fileName: `${slideName}.${ext}`,
             dataUri
           };
         })
@@ -831,11 +1062,12 @@ export default function Home() {
 
       if (!res.ok) throw new Error("Failed to compile ZIP archive.");
 
+      const baseName = extractedData?.title ? sanitizeFilename(extractedData.title) : "carousel-export";
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `carousel-export.zip`;
+      a.download = `${baseName}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -844,6 +1076,54 @@ export default function Home() {
       setError(err.message || "Failed to download ZIP file.");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // ==========================================
+  // EXPORT FORMATS: ZIP (PNG/JPEG) + PDF
+  // ==========================================
+  const handleExportPdf = async () => {
+    const indicesToExport = Object.keys(selectedForExport)
+      .map(Number)
+      .filter(idx => selectedForExport[idx] && renderedImages[idx]);
+
+    if (indicesToExport.length === 0) {
+      setError("Please select at least one slide to export.");
+      return;
+    }
+
+    setIsExporting(true);
+    setError(null);
+
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: 'pt', format: [1080, 1350], compress: true });
+
+      for (let i = 0; i < indicesToExport.length; i++) {
+        const idx = indicesToExport[i];
+        const dataUri = renderedImages[idx];
+
+        if (i > 0) {
+          doc.addPage([1080, 1350]);
+        }
+
+        doc.addImage(dataUri, "PNG", 0, 0, 1080, 1350);
+      }
+
+      const baseName = extractedData?.title ? sanitizeFilename(extractedData.title) : "carousel-export";
+      doc.save(`${baseName}.pdf`);
+    } catch (err: any) {
+      setError(err.message || "Failed to export PDF.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (exportFormat === "pdf") {
+      await handleExportPdf();
+    } else {
+      await handleExportZip();
     }
   };
 
@@ -928,6 +1208,7 @@ export default function Home() {
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
       
       {/* Central Layout Body */}
+      <StageErrorBoundary stageName="Carousel Wizard">
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-12 flex flex-col justify-start">
         
         {/* Step Indicator Panel (Pictured style) */}
@@ -1074,9 +1355,9 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-              )}
+            )}
 
-              {/* Preferences Configuration */}
+            {/* Preferences Configuration */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">
                   Tone & Preferences <span className="text-neutral-400 font-medium">(Optional)</span>
@@ -1187,13 +1468,28 @@ export default function Home() {
                   {approvedSlidesCount} of {slides.length} slides approved.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={addBlankSlide}
-                className="px-4 py-2 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 hover:text-neutral-900 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add Slide
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRegenerateAllConfirm(true)}
+                  disabled={slides.length === 0 || isRegeneratingAll}
+                  className="px-4 py-2 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 hover:text-neutral-900 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm disabled:opacity-50"
+                >
+                  {isRegeneratingAll ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  {isRegeneratingAll ? "Regenerating..." : "Regenerate All"}
+                </button>
+                <button
+                  type="button"
+                  onClick={addBlankSlide}
+                  className="px-4 py-2 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 hover:text-neutral-900 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Slide
+                </button>
+              </div>
             </div>
 
             {/* Slide list */}
@@ -1252,7 +1548,7 @@ export default function Home() {
                       <div className="flex gap-2 items-center flex-1 max-w-md md:justify-end">
                         <input
                           type="text"
-                          placeholder="Instruction for AI..."
+                          placeholder="Instruction for AI (optional)..."
                           value={instVal}
                           onChange={(e) => setAiInstructions(prev => ({ ...prev, [s.id]: e.target.value }))}
                           onKeyDown={(e) => {
@@ -1262,13 +1558,31 @@ export default function Home() {
                         />
                         <button
                           type="button"
-                          onClick={() => handleRegenerateBlock(idx)}
-                          disabled={isItemRegenerating || !instVal}
+                          onClick={() => {
+                            if (instVal.trim().length >= 2) {
+                              handleRegenerateBlock(idx);
+                            } else {
+                              handleRegenerateBlock(idx, "Regenerate this slide with fresh content");
+                            }
+                          }}
+                          disabled={isItemRegenerating}
                           className="px-3 py-1.5 bg-white border border-neutral-200 text-neutral-700 text-xs font-semibold rounded-lg hover:bg-neutral-50 transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
+                          title="Regenerate this slide"
                         >
                           <RefreshCw className={`h-3 w-3 ${isItemRegenerating ? "animate-spin" : ""}`} />
                           Regenerate
                         </button>
+                        {!instVal && (
+                          <button
+                            type="button"
+                            onClick={() => handleRegenerateBlock(idx, "Regenerate this slide with fresh content")}
+                            disabled={isItemRegenerating}
+                            className="p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                            title="Quick regenerate without instruction"
+                          >
+                            <RefreshCw className={`h-3.5 w-3.5 ${isItemRegenerating ? "animate-spin" : ""}`} />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1317,11 +1631,14 @@ export default function Home() {
                               className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 focus:outline-none"
                             >
                               <option value="text-only">Text Only</option>
+                              <option value="quote">Quote Block</option>
+                              <option value="stat">Big Stat</option>
                               <option value="step-chain">Step Chain</option>
                               <option value="venn">Venn Diagram</option>
                               <option value="wheel">Wheel Hub</option>
                               <option value="concentric">Concentric Hierarchy</option>
                               <option value="icon-grid">Icon Grid</option>
+                              <option value="table">Comparison Table</option>
                             </select>
                             {s.visualData?.loading && (
                               <span className="text-[10px] text-neutral-500 font-bold animate-pulse flex items-center gap-1">
@@ -1701,55 +2018,28 @@ export default function Home() {
 
                 {/* Segment B: Export config & Main download action */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  {/* Scribble Overlay Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScribble(prev => !prev);
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                      scribble
-                        ? "bg-purple-50 border-purple-200 text-purple-700 shadow-sm"
-                        : "bg-white border-neutral-200 text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
-                    }`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      <path d="M15 5l4 4" />
-                    </svg>
-                    Scribble
-                  </button>
-
-                  {/* PNG / JPG Format Select Toggle */}
+                  {/* Format Select Toggle: PNG / JPEG / PDF */}
                   <div className="flex items-center gap-0.5 bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/60 shadow-inner">
-                    <button
-                      type="button"
-                      onClick={() => setExportFormat("png")}
-                      className={`px-3 py-1.5 text-[11px] font-extrabold rounded-md transition-all cursor-pointer ${
-                        exportFormat === "png"
-                          ? "bg-white text-neutral-900 shadow-sm"
-                          : "text-neutral-500 hover:text-neutral-800"
-                      }`}
-                    >
-                      PNG
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setExportFormat("jpg")}
-                      className={`px-3 py-1.5 text-[11px] font-extrabold rounded-md transition-all cursor-pointer ${
-                        exportFormat === "jpg"
-                          ? "bg-white text-neutral-900 shadow-sm"
-                          : "text-neutral-500 hover:text-neutral-800"
-                      }`}
-                    >
-                      JPG
-                    </button>
+                    {(["png", "jpeg", "pdf"] as const).map(fmt => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => setExportFormat(fmt)}
+                        className={`px-3 py-1.5 text-[11px] font-extrabold rounded-md transition-all cursor-pointer ${
+                          exportFormat === fmt
+                            ? "bg-white text-neutral-900 shadow-sm"
+                            : "text-neutral-500 hover:text-neutral-800"
+                        }`}
+                      >
+                        {fmt === "png" ? "PNG" : fmt === "jpeg" ? "JPEG" : "PDF"}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Download Action */}
+                  {/* Single Export Action */}
                   <button
                     type="button"
-                    onClick={handleExportZip}
+                    onClick={handleExport}
                     disabled={isExporting || isRendering || renderedImages.length === 0}
                     className="px-4.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-sm flex items-center gap-1.5 text-xs disabled:opacity-50 cursor-pointer"
                   >
@@ -1761,7 +2051,7 @@ export default function Home() {
                     ) : (
                       <>
                         <Download className="h-3.5 w-3.5" />
-                        Download ZIP ({activeExportCount})
+                        Export ({activeExportCount})
                       </>
                     )}
                   </button>
@@ -1832,8 +2122,7 @@ export default function Home() {
                       key={idx}
                       onClick={() => toggleExportSelected(idx)}
                       onDoubleClick={() => {
-                        setEditingSlideIdx(idx);
-                        setIsEditModalOpen(true);
+                        openCanvasEditor(idx);
                       }}
                       className={`relative rounded-xl overflow-hidden border-2 aspect-[4/5] bg-white transition-all cursor-pointer group shadow-sm select-none ${
                         selectedForExport[idx]
@@ -1854,6 +2143,13 @@ export default function Home() {
                         </div>
                       )}
 
+                      {/* Regenerating overlay */}
+                      {isRegenerating[slides[idx]?.id] && (
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center rounded-md">
+                          <Loader2 className="h-8 w-8 text-white animate-spin" />
+                        </div>
+                      )}
+
                       {/* Checkbox overlay top-left */}
                       <div className="absolute top-3 left-3 z-20">
                         <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
@@ -1868,11 +2164,19 @@ export default function Home() {
                         {idx + 1}
                       </div>
 
-                      {/* Double-click edit helper tooltip on hover */}
-                      <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                      {/* Hover overlay with edit and regenerate actions */}
+                      <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                         <span className="bg-black/60 backdrop-blur-sm text-[10px] text-white font-bold py-1 px-2.5 rounded-full shadow">
                           Double-click to edit
                         </span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleRegenerateBlock(idx, "Regenerate this slide with fresh content"); }}
+                          className="bg-black/60 backdrop-blur-sm p-1.5 rounded-full shadow hover:bg-black/80 transition-all"
+                          title="Regenerate this slide"
+                        >
+                          <RefreshCw className="h-4 w-4 text-white" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1922,6 +2226,13 @@ export default function Home() {
                       </div>
                     )}
 
+                    {/* Regenerating overlay for social mockup */}
+                    {isRegenerating[slides[activeSocialSlide]?.id] && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-20 flex items-center justify-center rounded-3xl">
+                        <Loader2 className="h-10 w-10 text-white animate-spin" />
+                      </div>
+                    )}
+
                     {/* Floating Left Arrow */}
                     {activeSocialSlide > 0 && (
                       <button
@@ -1944,9 +2255,19 @@ export default function Home() {
                       </button>
                     )}
 
-                    {/* Top right slide pagination tag */}
-                    <div className="absolute top-3.5 right-3.5 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-black text-white tracking-widest shadow-sm select-none">
-                      {activeSocialSlide + 1} / {renderedImages.length}
+                    {/* Top right slide pagination and regenerate */}
+                    <div className="absolute top-3.5 right-3.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRegenerateBlock(activeSocialSlide, "Regenerate this slide with fresh content")}
+                        className="bg-black/60 backdrop-blur-sm p-1.5 rounded-full hover:bg-black/80 transition-all z-10"
+                        title="Regenerate this slide"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5 text-white" />
+                      </button>
+                      <div className="bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-black text-white tracking-widest shadow-sm select-none">
+                        {activeSocialSlide + 1} / {renderedImages.length}
+                      </div>
                     </div>
                   </div>
 
@@ -2041,6 +2362,7 @@ export default function Home() {
         )}
 
       </main>
+      </StageErrorBoundary>
 
       {/* FOOTER */}
       <footer className="border-t border-neutral-200 bg-white px-6 py-6 text-center text-neutral-400">
@@ -2102,362 +2424,75 @@ export default function Home() {
       )}
 
       {/* ==========================================
-          DOUBLE-CLICK CANVAS / DIAGRAM EDITOR MODAL
+          REGENERATE ALL CONFIRMATION MODAL
           ========================================== */}
-      {isEditModalOpen && editingSlideIdx !== null && (
+      {showRegenerateAllConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          
-          <div className="bg-white border border-neutral-200 rounded-3xl w-full max-w-4xl shadow-2xl p-6 relative flex flex-col md:flex-row gap-6 max-h-[92vh] overflow-y-auto">
-            
-            {/* Close button overlay */}
+          <div className="bg-white border border-neutral-200 rounded-3xl w-full max-w-md shadow-2xl p-8 relative">
             <button
-              onClick={() => {
-                setIsEditModalOpen(false);
-                setEditingSlideIdx(null);
-              }}
-              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-600 p-1.5 bg-neutral-50 hover:bg-neutral-100 rounded-lg transition-all z-20"
+              onClick={() => setShowRegenerateAllConfirm(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-600 p-1.5 bg-neutral-50 hover:bg-neutral-100 rounded-lg transition-all"
             >
               <X className="h-5 w-5" />
             </button>
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <RefreshCw className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-extrabold text-neutral-900">Regenerate All Slides</h2>
+                  <p className="text-sm text-neutral-500 mt-0.5">This action will replace all slide content.</p>
+                </div>
+              </div>
 
-            {(() => {
-              const approved = slides.filter(s => s.approved);
-              const activeSlide = approved[editingSlideIdx];
-              if (!activeSlide) return null;
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-2">
+                <p className="font-semibold">This will regenerate all slides and discard your manual edits.</p>
+                <ul className="text-xs space-y-1 list-disc list-inside text-amber-700">
+                  <li>All title and body text will be replaced</li>
+                  <li>All approvals will be unchecked (re-review needed)</li>
+                  <li>Slide count and preferences (tone/focus) will be preserved</li>
+                  <li>Canvas-edited slides will be reset</li>
+                </ul>
+              </div>
 
-              const baseIdx = slides.findIndex(s => s.id === activeSlide.id);
-              const activeSlideShapes = activeSlide.shapes || [];
-
-              return (
-                <>
-                  {/* Left Column: Visual Slide Preview Overlay */}
-                  <div className="flex-1 flex flex-col items-center justify-center bg-neutral-50 border border-neutral-100 rounded-2xl p-4 relative min-h-[400px]">
-                    <span className="absolute top-4 left-4 text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                      Slide Preview
-                    </span>
-
-                    {/* Preview wrapper preserving Aspect Ratio */}
-                    <div className="w-full max-w-[340px] aspect-[4/5] bg-white rounded-xl shadow-lg border border-neutral-200/60 overflow-hidden relative select-none">
-                      {renderedImages[editingSlideIdx] ? (
-                        <img
-                          src={renderedImages[editingSlideIdx]}
-                          alt="Live Preview"
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-neutral-400">
-                          Loading Preview...
-                        </div>
-                      )}
-
-                      {/* Interactive Shape Placement Preview Mock Overlay */}
-                      <div className="absolute inset-0 pointer-events-none">
-                        {activeSlideShapes.map((shape) => {
-                          const isText = shape.type === "text";
-                          return (
-                            <div
-                              key={shape.id}
-                              style={{
-                                position: "absolute",
-                                left: `${shape.x}%`,
-                                top: `${shape.y}%`,
-                                width: isText ? "auto" : `${shape.width * 0.31}px`, // scaled preview factor
-                                height: isText ? "auto" : `${shape.height * 0.31}px`,
-                                backgroundColor: isText ? "transparent" : shape.color,
-                                border: isText ? "none" : "1px solid rgba(255,255,255,0.4)",
-                                borderRadius: shape.type === "circle" ? "50%" : "0px",
-                                color: isText ? shape.color : "transparent",
-                                fontSize: isText ? `${(shape.fontSize || 24) * 0.31}px` : "0px",
-                                fontWeight: 800,
-                                opacity: 0.8,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center"
-                              }}
-                            >
-                              {isText ? shape.text : ""}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    
-                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-4">
-                      Aspect Ratio: 1080 × 1350 (4:5)
-                    </p>
-                  </div>
-
-                  {/* Right Column: Editing Tools */}
-                  <div className="w-full md:w-[440px] flex flex-col justify-between gap-6 shrink-0">
-                    
-                    <div className="space-y-5">
-                      <div>
-                        <span className="text-xs font-bold text-blue-600 uppercase tracking-widest block mb-0.5">
-                          Slide Editor & Diagram Canvas
-                        </span>
-                        <h3 className="text-lg font-bold text-neutral-900">
-                          Customize Slide {editingSlideIdx + 1}
-                        </h3>
-                      </div>
-
-                      {/* Title & Body Inputs */}
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Headline</label>
-                          <input
-                            type="text"
-                            value={activeSlide.userTitle}
-                            onChange={(e) => handleQuickSlideEdit(baseIdx, "userTitle", e.target.value)}
-                            className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-4 py-2 text-sm text-neutral-900 focus:outline-none font-bold"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Body copy</label>
-                          <textarea
-                            rows={3}
-                            value={activeSlide.userBody}
-                            onChange={(e) => handleQuickSlideEdit(baseIdx, "userBody", e.target.value)}
-                            className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-4 py-2 text-sm text-neutral-700 focus:outline-none font-medium leading-relaxed"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Visual Assets (Image upload) */}
-                      <div className="space-y-2 pt-3 border-t border-neutral-100">
-                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block flex items-center gap-1.5">
-                          <ImageIcon className="h-4 w-4 text-blue-500" /> Graphic Image Asset
-                        </label>
-
-                        {activeSlide.imageUrl ? (
-                          <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 flex flex-col gap-2">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-8 rounded border border-neutral-200 overflow-hidden shrink-0 bg-white">
-                                <img src={activeSlide.imageUrl} alt="preview" className="h-full w-full object-cover" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-neutral-800 truncate">Asset Attached</p>
-                                <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold">
-                                  Layout: {activeSlide.imageLayout || "inline"}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveImage(editingSlideIdx)}
-                                className="p-1.5 text-neutral-500 hover:text-red-500 bg-white border border-neutral-200 hover:border-red-200 rounded-lg transition-all"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleImageLayout(editingSlideIdx)}
-                              className="px-2 py-1 bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-[10px] font-bold rounded-md transition-all text-center"
-                            >
-                              Set to {activeSlide.imageLayout === "background" ? "Inline" : "Full Background"}
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="relative border-2 border-dashed border-neutral-200 bg-neutral-50 hover:bg-neutral-100/50 hover:border-neutral-300 transition-all rounded-xl p-3 flex flex-col items-center justify-center text-center">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(e, editingSlideIdx)}
-                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                            />
-                            <ImageIcon className="h-5 w-5 text-neutral-400 mb-1" />
-                            <span className="text-xs font-bold text-neutral-500">Upload background/inline asset</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* DIAGRAM BUILDER TOOLS */}
-                      <div className="space-y-3 pt-3 border-t border-neutral-100">
-                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block flex items-center gap-1.5">
-                          <Layers className="h-4 w-4 text-blue-500" /> Diagram Overlay Shapes
-                        </label>
-                        
-                        {/* Shape creator buttons */}
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => addShapeToSlide(baseIdx, "rect")}
-                            className="px-3 py-2 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 text-neutral-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1 transition-all"
-                          >
-                            <SquareIcon className="h-3.5 w-3.5" /> + Rect
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => addShapeToSlide(baseIdx, "circle")}
-                            className="px-3 py-2 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 text-neutral-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1 transition-all"
-                          >
-                            <CircleIcon className="h-3.5 w-3.5" /> + Circle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => addShapeToSlide(baseIdx, "text")}
-                            className="px-3 py-2 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 text-neutral-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1 transition-all"
-                          >
-                            <TypeIcon className="h-3.5 w-3.5" /> + Text Annotation
-                          </button>
-                        </div>
-
-                        {/* List of shapes & layout sliders */}
-                        {activeSlideShapes.length > 0 && (
-                          <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 max-h-[220px] overflow-y-auto space-y-4">
-                            {activeSlideShapes.map((shape) => (
-                              <div key={shape.id} className="border-b border-neutral-200/80 pb-3 last:border-b-0 last:pb-0 space-y-2.5">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">
-                                    {shape.type === "rect" ? "Rectangle" : shape.type === "circle" ? "Circle" : "Text"} Element
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeShapeFromSlide(baseIdx, shape.id)}
-                                    className="text-neutral-400 hover:text-red-500 p-0.5 transition-all"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-
-                                {/* Slider controls for X and Y */}
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-neutral-400 uppercase">Position X: {shape.x}%</span>
-                                    <input
-                                      type="range"
-                                      min={0}
-                                      max={90}
-                                      value={shape.x}
-                                      onChange={(e) => updateShapeProp(baseIdx, shape.id, "x", parseInt(e.target.value))}
-                                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-neutral-400 uppercase">Position Y: {shape.y}%</span>
-                                    <input
-                                      type="range"
-                                      min={0}
-                                      max={90}
-                                      value={shape.y}
-                                      onChange={(e) => updateShapeProp(baseIdx, shape.id, "y", parseInt(e.target.value))}
-                                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Sliders for width and height (only for shape blocks) */}
-                                {shape.type !== "text" && (
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                      <span className="text-[10px] font-bold text-neutral-400 uppercase">Width: {shape.width}px</span>
-                                      <input
-                                        type="range"
-                                        min={30}
-                                        max={500}
-                                        value={shape.width}
-                                        onChange={(e) => updateShapeProp(baseIdx, shape.id, "width", parseInt(e.target.value))}
-                                        className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <span className="text-[10px] font-bold text-neutral-400 uppercase">Height: {shape.height}px</span>
-                                      <input
-                                        type="range"
-                                        min={30}
-                                        max={500}
-                                        value={shape.height}
-                                        onChange={(e) => updateShapeProp(baseIdx, shape.id, "height", parseInt(e.target.value))}
-                                        className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Color pill selection */}
-                                <div className="space-y-1">
-                                  <span className="text-[10px] font-bold text-neutral-400 uppercase block mb-1">Color</span>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {PRESET_COLORS.map((c) => (
-                                      <button
-                                        key={c.value}
-                                        type="button"
-                                        onClick={() => updateShapeProp(baseIdx, shape.id, "color", c.value)}
-                                        style={{ backgroundColor: c.value === "#ffffff" ? "#f3f4f6" : c.value }}
-                                        className={`w-4.5 h-4.5 rounded-full border transition-all ${
-                                          shape.color === c.value
-                                            ? "border-neutral-900 ring-1 ring-neutral-400 scale-105"
-                                            : "border-neutral-200"
-                                        }`}
-                                        title={c.label}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Text input and font size (for text type only) */}
-                                {shape.type === "text" && (
-                                  <div className="grid grid-cols-3 gap-2">
-                                    <div className="col-span-2 space-y-1">
-                                      <span className="text-[10px] font-bold text-neutral-400 uppercase">Annotation Text</span>
-                                      <input
-                                        type="text"
-                                        value={shape.text || ""}
-                                        onChange={(e) => updateShapeProp(baseIdx, shape.id, "text", e.target.value)}
-                                        className="w-full bg-white border border-neutral-200 rounded-md px-2 py-1 text-xs text-neutral-900 focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="col-span-1 space-y-1">
-                                      <span className="text-[10px] font-bold text-neutral-400 uppercase">Size</span>
-                                      <input
-                                        type="number"
-                                        min={12}
-                                        max={80}
-                                        value={shape.fontSize || 24}
-                                        onChange={(e) => updateShapeProp(baseIdx, shape.id, "fontSize", parseInt(e.target.value) || 24)}
-                                        className="w-full bg-white border border-neutral-200 rounded-md px-2 py-1 text-xs text-neutral-900 focus:outline-none text-center"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-
-                    {/* Apply Actions */}
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => deleteSlide(baseIdx)}
-                        className="px-3.5 py-3 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-200 rounded-xl transition-all font-bold text-xs"
-                      >
-                        Delete Canvas
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setError(null);
-                          setIsRendering(true);
-                          await handleRender();
-                        }}
-                        className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md flex-1 text-center cursor-pointer text-sm"
-                      >
-                        Apply changes & Render Slide
-                      </button>
-                    </div>
-
-                  </div>
-                </>
-              );
-            })()}
-
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setShowRegenerateAllConfirm(false)}
+                  className="flex-1 px-5 py-2.5 text-neutral-600 hover:text-neutral-900 text-sm font-bold rounded-xl border border-neutral-200 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRegenerateAll}
+                  className="flex-1 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  Regenerate All
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
+
+      {/* ==========================================
+          CANVAS EDITOR
+          ========================================== */}
+      {isCanvasEditorOpen && editingSlideIdx !== null && (() => {
+        const approved = slides.filter(s => s.approved);
+        const target = approved[editingSlideIdx];
+        if (!target) return null;
+        return (
+          <CanvasEditor
+            initialElements={target.elements || []}
+            onSave={handleCanvasEditorSave}
+            onClose={() => {
+              setIsCanvasEditorOpen(false);
+              setEditingSlideIdx(null);
+            }}
+          />
+        );
+      })()}
 
     </div>
   );

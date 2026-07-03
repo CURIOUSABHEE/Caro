@@ -22,7 +22,7 @@ export const RegenerateBlockSchema = z.object({
     body: z.string(),
     order: z.number(),
   }),
-  instruction: z.string().min(2, "Instruction is too short"),
+  instruction: z.string().optional().default(""),
   originalText: z.string().optional(), // optionally provide context
 });
 
@@ -40,7 +40,7 @@ export const ShapeSchema = z.object({
 
 // Step 3.5: Fill Visual Data validator
 export const FillVisualDataSchema = z.object({
-  visualType: z.enum(["step-chain", "venn", "wheel", "concentric", "icon-grid", "code-block", "text-only"]),
+  visualType: z.enum(["step-chain", "venn", "wheel", "concentric", "icon-grid", "code-block", "text-only", "quote", "stat", "table"]),
   title: z.string(),
   body: z.string(),
 });
@@ -55,7 +55,7 @@ export const RenderSlideSchema = z.object({
   imageUrl: z.string().nullable().optional(),
   imageLayout: z.enum(["background", "inline"]).default("inline").optional(),
   shapes: z.array(ShapeSchema).optional(),
-  visualType: z.enum(["step-chain", "venn", "wheel", "concentric", "icon-grid", "code-block", "text-only"]).default("text-only").optional(),
+  visualType: z.enum(["step-chain", "venn", "wheel", "concentric", "icon-grid", "code-block", "text-only", "quote", "stat", "table"]).default("text-only").optional(),
   visualData: z.any().optional(),
   scribble: z.boolean().optional().default(false),
 });
@@ -66,7 +66,6 @@ export const RenderProjectSchema = z.object({
   username: z.string().default(""),
   websiteUrl: z.string().default(""),
   scribble: z.boolean().optional().default(false),
-  slideIndex: z.number().optional(),
 });
 
 // Step 4.5: Export Zip validator

@@ -5,14 +5,22 @@ import "./globals.css";
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  // Only preload the weights actually used in the browser UI (300, 400, 700, 800).
+  // Intermediate weights (500, 600) are handled by font interpolation.
+  weight: ["300", "400", "700", "800"],
+  display: "swap",
+  preload: false,
 });
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "700"],
   style: ["normal", "italic"],
+  display: "swap",
+  // Playfair is only used inside Satori-rendered slide PNGs (loaded via fonts.ts server-side).
+  // Telling Next.js not to emit a preload hint for it prevents the 'preloaded but not used' warning.
+  preload: false,
 });
 
 export const metadata: Metadata = {

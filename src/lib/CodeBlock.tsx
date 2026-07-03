@@ -127,15 +127,20 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme }
                   flexWrap: "wrap",
                   whiteSpace: "pre",
                   fontFamily: "JetBrains Mono",
-                  paddingLeft: isBash ? "24px" : "0px",
+                  paddingLeft: isBash ? "8px" : "0px",
+                  alignItems: "center",
                 }}
               >
+                {/* Bash prompt prefix — visual only, does not mutate stored code */}
+                {isBash && (
+                  <span style={{ color: theme === "dark" ? "#4d9375" : "#0a7c3e", fontFamily: "JetBrains Mono", whiteSpace: "pre", userSelect: "none", marginRight: "6px", fontWeight: 700 }}>$</span>
+                )}
                 {line.tokens.length > 0
                   ? line.tokens.map((token, ti) => (
                       <span
                         key={ti}
                         style={{
-                          color: token.color || "#e6edf3",
+                          color: token.color || (theme === "dark" ? "#e6edf3" : "#24292e"),
                           fontFamily: "JetBrains Mono",
                           whiteSpace: "pre",
                         }}
@@ -146,7 +151,7 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme }
                   : (
                     <span
                       style={{
-                        color: "#e6edf3",
+                        color: theme === "dark" ? "#e6edf3" : "#24292e",
                         fontFamily: "JetBrains Mono",
                         whiteSpace: "pre",
                       }}

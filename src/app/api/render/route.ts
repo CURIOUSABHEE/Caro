@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
 import satori from "satori";
-import { loadAllFonts } from "@/lib/fonts";
+import { loadAllFonts, type SatoriFont } from "@/lib/fonts";
 import { renderThemeSlide } from "@/lib/themes";
 import { RenderProjectSchema } from "@/lib/validators";
 import { tokenizeCode } from "@/lib/tokenize-code";
 import { Resvg } from "@resvg/resvg-js";
-import fs from "fs";
-import path from "path";
+
+// Module-level font cache — loaded once, reused across all requests
+let fontCache: SatoriFont[] | null = null;
+let fontLoadPromise: Promise<SatoriFont[]> | null = null;
+
+async function getFonts(): Promise<SatoriFont[]> {
+  if (fontCache) return fontCache;
+  if (!fontLoadPromise) {
+    fontLoadPromise = loadAllFonts().then((fonts) => {
+      fontCache = fonts;
+      return fonts;
+    });
+  }
+  return fontLoadPromise;
+}
 
 // Recursive helper to clean zIndex styles from Satori rendering tree to prevent console warnings
 function removeZIndexFromTree(node: any): any {
@@ -39,7 +52,7 @@ function removeZIndexFromTree(node: any): any {
   return node;
 }
 
-function renderWithResvg(svg: string, _slideIdx: number): string {
+function renderWithResvg(svg: string): string {
   try {
     const resvg = new Resvg(svg, {
       background: "rgba(0, 0, 0, 0)",
@@ -51,6 +64,70 @@ function renderWithResvg(svg: string, _slideIdx: number): string {
   } catch (err: any) {
     throw new Error(err.message || "Resvg rendering failed");
   }
+}
+
+function buildSlideArgs(slide: any, i: number, totalSlides: number, themeName: string, username: string, websiteUrl: string, scribble: boolean) {
+  return {
+    type: slide.type,
+    title: slide.title,
+    body: slide.body,
+    themeName,
+    username,
+    order: i,
+    totalSlides,
+    imageUrl: slide.imageUrl,
+    imageLayout: slide.imageLayout || "inline",
+    shapes: slide.shapes,
+    visualType: slide.visualType,
+    visualData: slide.visualData,
+    websiteUrl,
+    scribble,
+  };
+}
+
+async function tokenizeSlideCode(slide: any, themeName: string): Promise<any> {
+  if (slide.visualType === "code-block" && slide.visualData?.code) {
+    try {
+      const themeType = ["monochrome", "cyber-horizon"].includes(themeName) ? "dark" : "light";
+      const tokens = await tokenizeCode(
+        slide.visualData.code,
+        slide.visualData.language || "plaintext",
+        themeType
+      );
+      return { ...slide.visualData, tokens };
+    } catch (e) {
+      console.error(`[API Render] Tokenization failed:`, e);
+    }
+  }
+  return slide.visualData;
+}
+
+async function renderSingleSlide(slide: any, i: number, totalSlides: number, themeName: string, username: string, websiteUrl: string, scribble: boolean, fonts: SatoriFont[]): Promise<string> {
+  // Retry once, then fallback to text-only on persistent failure
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const visualData = attempt === 1
+        ? {}  // fallback: strip visual data
+        : await tokenizeSlideCode(slide, themeName);
+      const renderArgs = {
+        ...buildSlideArgs(slide, i, totalSlides, themeName, username, websiteUrl, scribble),
+        visualType: attempt === 1 ? "text-only" : slide.visualType,
+        visualData,
+      };
+      const jsx = removeZIndexFromTree(renderThemeSlide(renderArgs));
+      const svg = await satori(jsx, { width: 1080, height: 1350, fonts });
+      return renderWithResvg(svg);
+    } catch (err: any) {
+      console.error(`[API Render] Slide ${i} attempt ${attempt + 1} failed:`, err.message);
+      if (attempt === 0) {
+        await new Promise(r => setTimeout(r, 200));
+      } else {
+        console.error(`[API Render] Slide ${i} — both attempts failed, returning placeholder`);
+        throw err;
+      }
+    }
+  }
+  throw new Error("Render failed after retry and fallback");
 }
 
 export async function POST(req: Request) {
@@ -71,7 +148,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { slides, themeName, username, websiteUrl, scribble, slideIndex } = validation.data;
+    const { slides, themeName, username, websiteUrl, scribble } = validation.data;
     
     if (!slides || slides.length === 0) {
       return NextResponse.json(
@@ -80,158 +157,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // Load fonts once and reuse for all slides in this request
-    console.log("[API Render] Pre-loading fonts...");
-    const fonts = await loadAllFonts();
-    console.log("[API Render] Fonts loaded successfully.");
+    // Fonts loaded once (cached at module scope across requests)
+    const fonts = await getFonts();
+    const total = slides.length;
 
-    if (slideIndex !== undefined) {
-      if (slideIndex < 0 || slideIndex >= slides.length) {
-        return NextResponse.json(
-          { success: false, error: `Invalid slideIndex: ${slideIndex}` },
-          { status: 400 }
-        );
-      }
-
-      const slide = slides[slideIndex];
-      console.log(`[API Render] Rendering single slide ${slideIndex + 1}/${slides.length} (${slide.type})...`);
-
-      // Tokenize code server-side before Satori rendering
-      let enrichedVisualData = slide.visualData;
-      if (slide.visualType === "code-block" && slide.visualData?.code) {
-        try {
-          const themeType = ["monochrome", "cyber-horizon"].includes(themeName) ? "dark" : "light";
-          const tokens = await tokenizeCode(
-            slide.visualData.code,
-            slide.visualData.language || "plaintext",
-            themeType
-          );
-          enrichedVisualData = { ...slide.visualData, tokens };
-        } catch (e) {
-          console.error(`[API Render] Tokenization failed for slide ${slideIndex}:`, e);
-        }
-      }
-
-      // 1. Generate SVG using Satori
-      let svg: string;
-      try {
-        svg = await satori(
-          removeZIndexFromTree(
-            renderThemeSlide({
-              type: slide.type,
-              title: slide.title,
-              body: slide.body,
-              themeName,
-              username,
-              order: slideIndex,
-              totalSlides: slides.length,
-              imageUrl: slide.imageUrl,
-              imageLayout: slide.imageLayout || "inline",
-              shapes: slide.shapes,
-              visualType: slide.visualType,
-              visualData: enrichedVisualData,
-              websiteUrl,
-              scribble,
-            })
-          ),
-          {
-            width: 1080,
-            height: 1350,
-            fonts: fonts,
-          }
-        );
-      } catch (satoriErr: any) {
-        console.error(`[API Render] Satori rendering failed for slideIndex ${slideIndex}:`, satoriErr);
-        try {
-          fs.writeFileSync("/tmp/failed-render-payload.json", JSON.stringify({
-            error: satoriErr.message,
-            stack: satoriErr.stack,
-            slideIndex,
-            slide,
-            themeName,
-            username,
-            websiteUrl,
-            scribble,
-            fullBody: body,
-          }, null, 2));
-          console.log("[API Render] Dumped failed payload to /tmp/failed-render-payload.json");
-        } catch (dumpErr) {
-          console.error("[API Render] Failed to dump payload:", dumpErr);
-        }
-        throw satoriErr;
-      }
-
-      // 2. Render SVG to PNG using resvg (isolated in child process)
-      const base64Image = renderWithResvg(svg, slideIndex);
-      return NextResponse.json({
-        success: true,
-        data: {
-          image: base64Image,
-          slideIndex,
-        },
-      });
-    }
+    // Render all slides in parallel — individual failures don't kill the batch
+    const results = await Promise.allSettled(
+      slides.map((slide, i) =>
+        renderSingleSlide(slide, i, total, themeName, username, websiteUrl, scribble, fonts)
+      )
+    );
 
     const renderedImages: string[] = [];
+    const errors: { index: number; error: string }[] = [];
+    const placeholderPixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-    for (let i = 0; i < slides.length; i++) {
-      const slide = slides[i];
-      console.log(`[API Render] Rendering slide ${i + 1}/${slides.length} (${slide.type})...`);
-
-      // Tokenize code server-side before Satori rendering
-      let enrichedVisualData = slide.visualData;
-      if (slide.visualType === "code-block" && slide.visualData?.code) {
-        try {
-          const themeType = ["monochrome", "cyber-horizon"].includes(themeName) ? "dark" : "light";
-          const tokens = await tokenizeCode(
-            slide.visualData.code,
-            slide.visualData.language || "plaintext",
-            themeType
-          );
-          enrichedVisualData = { ...slide.visualData, tokens };
-        } catch (e) {
-          console.error(`[API Render] Tokenization failed for slide ${i}:`, e);
-        }
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        renderedImages.push(r.value);
+      } else {
+        console.error(`[API Render] Slide ${i} failed:`, r.reason);
+        renderedImages.push(placeholderPixel);
+        errors.push({ index: i, error: r.reason?.message || "Render failed" });
       }
-
-      // 1. Generate SVG using Satori
-      const svg = await satori(
-        removeZIndexFromTree(
-          renderThemeSlide({
-            type: slide.type,
-            title: slide.title,
-            body: slide.body,
-            themeName,
-            username,
-            order: i,
-            totalSlides: slides.length,
-            imageUrl: slide.imageUrl,
-            imageLayout: slide.imageLayout || "inline",
-            shapes: slide.shapes,
-            visualType: slide.visualType,
-            visualData: enrichedVisualData,
-            websiteUrl,
-            scribble,
-          })
-        ),
-        {
-          width: 1080,
-          height: 1350,
-          fonts: fonts,
-        }
-      );
-
-      // 2. Render SVG to PNG using resvg (isolated in child process)
-      const base64Image = renderWithResvg(svg, i);
-      renderedImages.push(base64Image);
     }
 
-    console.log("[API Render] All slides rendered successfully.");
     return NextResponse.json({
       success: true,
-      data: {
-        images: renderedImages,
-      },
+      data: { images: renderedImages, errors: errors.length > 0 ? errors : undefined },
     });
   } catch (error: any) {
     console.error("[API Render] Slide rendering failed:", error);
