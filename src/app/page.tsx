@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { CanvasElement } from "@/components/CanvasEditor";
 import { StageErrorBoundary } from "@/components/StageErrorBoundary";
@@ -82,15 +83,21 @@ const PRESET_COLORS = [
   { value: "#db2777", label: "Pink" }
 ];
 
-type ThemeName = "monochrome" | "soft-gradient" | "warm-editorial" | "mesh-glow" | "cyber-horizon" | "linen-rust";
+type ThemeName = "monochrome" | "soft-gradient" | "warm-editorial" | "mesh-glow" | "cyber-horizon" | "linen-rust" | "neo-brutalism" | "neomorphism" | "frosted-grid" | "glassmorphism" | "liquid-glass" | "sketch";
 
 const PALETTE_INFO: { name: ThemeName; label: string; colors: string[] }[] = [
   { name: "monochrome", label: "Monochrome", colors: ["#050505", "#ffffff", "#6e6e6e"] },
   { name: "soft-gradient", label: "Soft Gradient", colors: ["#fbfbfc", "#c084fc", "#f472b6"] },
-  { name: "warm-editorial", label: "Warm Editorial", colors: ["#f5f2eb", "#e05a47", "#1e1b18"] },
-  { name: "mesh-glow", label: "Mesh Glow", colors: ["#ffffff", "#3b82f6", "#ec4899"] },
-  { name: "cyber-horizon", label: "Cyber Horizon", colors: ["#050505", "#ea580c", "#ffffff"] },
+  { name: "warm-editorial", label: "Warm Editorial", colors: ["#FDFBF7", "#E05A47", "#2C3E50"] },
+  { name: "mesh-glow", label: "Mesh Glow", colors: ["#ffffff", "#ec4899", "#f472b6"] },
+  { name: "cyber-horizon", label: "Cyber Horizon", colors: ["#0a0a0a", "#ea580c", "#3b82f6"] },
   { name: "linen-rust", label: "Linen & Rust", colors: ["#d8d7cf", "#c5563c", "#2e2b2a"] },
+  { name: "neo-brutalism", label: "Neo Brutalism", colors: ["#E5E5E5", "#161616", "#FF4500"] },
+  { name: "neomorphism", label: "Neomorphism", colors: ["#E0E5EC", "#6D8CAE", "#ffffff"] },
+  { name: "frosted-grid", label: "Frosted Grid", colors: ["#a855f7", "#ffffff", "#000000"] },
+  { name: "glassmorphism", label: "Glassmorphism", colors: ["#0f172a", "#e2e8f0", "#ffffff"] },
+  { name: "liquid-glass", label: "Liquid Glass", colors: ["#0ea5e9", "#f97316", "#f8fafc"] },
+  { name: "sketch", label: "Sketch", colors: ["#2d2d2d", "#fdfaf6", "#4a4a4a"] },
 ];
 
 const convertBase64PngToJpg = (pngBase64Uri: string): Promise<string> => {
@@ -154,10 +161,11 @@ export default function Home() {
   const [aiInstructions, setAiInstructions] = useState<Record<string, string>>({});
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  const [themeName, setThemeName] = useState<"monochrome" | "soft-gradient" | "warm-editorial" | "mesh-glow" | "cyber-horizon" | "linen-rust">("monochrome");
+  const [themeName, setThemeName] = useState<ThemeName>("monochrome");
   const activeThemeRef = React.useRef(themeName);
   activeThemeRef.current = themeName;
   const [username, setUsername] = useState<string>("");
+  const [paletteOverride, setPaletteOverride] = useState<Record<string, string> | null>(null);
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [exportFormat, setExportFormat] = useState<"png" | "jpeg" | "pdf">("png");
   const [websiteUrl, setWebsiteUrl] = useState<string>("");
@@ -165,6 +173,16 @@ export default function Home() {
   const [scribble, setScribble] = useState<boolean>(false);
 
   // Live Theme Preview State
+  const PALETTE_PRESETS = [
+    { name: "Sunset", background: "#F7F3EC", text: "#141414", primary: "#F4623A", secondary: "#FFD400", tertiary: "#2EC4B6" },
+    { name: "Berry", background: "#FAF3EF", text: "#161616", primary: "#D6336C", secondary: "#FFB700", tertiary: "#845EF7" },
+    { name: "Forest", background: "#F4F6EE", text: "#1B1B1B", primary: "#2F9E44", secondary: "#FFC078", tertiary: "#1098AD" },
+    { name: "Ocean", background: "#F0F4F8", text: "#0F172A", primary: "#2563EB", secondary: "#06B6D4", tertiary: "#7C3AED" },
+    { name: "Candy", background: "#FFF5F5", text: "#1A1A2E", primary: "#FF3EA5", secondary: "#FFD400", tertiary: "#00D4AA" },
+    { name: "Midnight", background: "#0F0F1A", text: "#E8E8E8", primary: "#FF6B35", secondary: "#FFD93D", tertiary: "#6BCB77" },
+    { name: "Rose", background: "#FDF2F2", text: "#1C1917", primary: "#E11D48", secondary: "#FDA4AF", tertiary: "#8B5CF6" },
+    { name: "Mint", background: "#F0FDF4", text: "#0F172A", primary: "#059669", secondary: "#34D399", tertiary: "#0284C7" },
+  ];
   const [themePreviewUri, setThemePreviewUri] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState<boolean>(false);
 
@@ -178,6 +196,7 @@ export default function Home() {
   const [editingSlideIdx, setEditingSlideIdx] = useState<number | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isCanvasEditorOpen, setIsCanvasEditorOpen] = useState<boolean>(false);
+  const [canvasBgImage, setCanvasBgImage] = useState<string | null>(null);
   const [isRegeneratingAll, setIsRegeneratingAll] = useState<boolean>(false);
   const [showRegenerateAllConfirm, setShowRegenerateAllConfirm] = useState<boolean>(false);
 
@@ -191,9 +210,15 @@ export default function Home() {
     "monochrome": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#050505"/><rect x="35" y="35" width="330" height="430" fill="none" stroke="#1c1c1c" stroke-width="1"/><text x="200" y="55" font-family="system-ui,sans-serif" font-size="11" fill="#6e6e6e" font-weight="700" text-anchor="middle">INTRODUCTION</text><text x="320" y="55" font-family="system-ui,sans-serif" font-size="11" fill="#6e6e6e" font-weight="700" text-anchor="end">1/5</text><text x="200" y="240" text-anchor="middle" font-family="Georgia,serif" font-size="36" fill="white" font-weight="400">Monochrome</text><line x1="150" y1="260" x2="250" y2="260" stroke="#333" stroke-width="1"/><text x="200" y="295" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#a3a3a3" font-weight="400">Minimal. Bold. Timeless.</text><text x="40" y="455" font-family="system-ui,sans-serif" font-size="13" fill="white" font-weight="800">@username</text><text x="330" y="455" font-family="system-ui,sans-serif" font-size="12" fill="#7a7a7a" font-weight="700" text-anchor="end">SWIPE &gt;</text></svg>`),
     "soft-gradient": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c084fc"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs><rect width="400" height="500" fill="#fbfbfc"/><circle cx="200" cy="460" r="260" fill="url(#sg)" opacity="0.12"/><circle cx="80" cy="80" r="180" fill="#c084fc" opacity="0.06"/><circle cx="340" cy="120" r="140" fill="#f472b6" opacity="0.08"/><rect x="25" y="30" width="350" height="440" rx="24" fill="white" opacity="0.55" stroke="rgba(255,255,255,0.6)" stroke-width="1"/><rect x="35" y="42" width="80" height="22" rx="9999" fill="white" opacity="0.5" stroke="rgba(255,255,255,0.3)" stroke-width="1"/><text x="75" y="57" font-family="system-ui,sans-serif" font-size="9" fill="#475569" font-weight="800" text-anchor="middle" text-transform="uppercase" letter-spacing="1">Cover Story</text><text x="310" y="57" font-family="system-ui,sans-serif" font-size="10" fill="#475569" font-weight="800">1/5</text><text x="200" y="230" text-anchor="middle" font-family="system-ui,sans-serif" font-size="32" fill="#0f172a" font-weight="800" letter-spacing="-1">Soft Gradient</text><text x="200" y="260" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#475569">Lush. Flowing. Vibrant.</text><rect x="35" y="420" width="100" height="26" rx="9999" fill="rgba(15,23,42,0.04)" stroke="rgba(15,23,42,0.05)" stroke-width="1"/><text x="85" y="438" font-family="system-ui,sans-serif" font-size="11" fill="#0f172a" font-weight="800" text-anchor="middle">@username</text></svg>`),
     "warm-editorial": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#f5f2eb"/><rect x="0" y="0" width="400" height="4" fill="#e05a47"/><text x="40" y="55" font-family="system-ui,sans-serif" font-size="11" fill="#e05a47" font-weight="800" letter-spacing="2">CARO</text><text x="340" y="55" font-family="system-ui,sans-serif" font-size="10" fill="#e05a47" font-weight="800">1/5</text><text x="40" y="105" font-family="system-ui,sans-serif" font-size="12" fill="#e05a47" font-weight="800" letter-spacing="3" text-transform="uppercase">Step-by-Step Guide</text><text x="40" y="175" font-family="Georgia,serif" font-size="36" fill="#1e1b18" font-weight="700">Warm</text><text x="40" y="220" font-family="Georgia,serif" font-size="36" fill="#e05a47" font-weight="700">Editorial</text><line x1="40" y1="245" x2="140" y2="245" stroke="#e05a47" stroke-width="2" opacity="0.4"/><text x="40" y="285" font-family="system-ui,sans-serif" font-size="15" fill="#6b6259">Elegant serif titles,</text><text x="40" y="310" font-family="system-ui,sans-serif" font-size="15" fill="#6b6259">terracotta red highlights.</text><text x="40" y="455" font-family="system-ui,sans-serif" font-size="11" fill="#e05a47" font-weight="800" letter-spacing="2">REALLYGREATSITE.COM</text><text x="330" y="455" font-family="system-ui,sans-serif" font-size="10" fill="#1e1b18" font-weight="800" text-anchor="end" text-transform="uppercase">Swipe next</text></svg>`),
-    "mesh-glow": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><radialGradient id="mg1" cx="0%" cy="0%" r="60%"><stop offset="0%" stop-color="#93c5fd" stop-opacity="0.25"/><stop offset="100%" stop-color="#93c5fd" stop-opacity="0"/></radialGradient><radialGradient id="mg2" cx="100%" cy="100%" r="60%"><stop offset="0%" stop-color="#f9a8d4" stop-opacity="0.2"/><stop offset="100%" stop-color="#f9a8d4" stop-opacity="0"/></radialGradient></defs><rect width="400" height="500" fill="url(#mg1)"/><rect width="400" height="500" fill="url(#mg2)"/><text x="30" y="50" font-family="Georgia,serif" font-size="28" fill="#3b82f6" font-weight="800">*</text><text x="40" y="220" font-family="system-ui,sans-serif" font-size="36" fill="#0a0a0a" font-weight="900">Mesh Glow</text><path d="M 42 235 S 130 228 220 235 S 290 242 330 238" stroke="#ec4899" stroke-width="4" stroke-linecap="round" fill="none"/><rect x="40" y="265" width="140" height="28" rx="9999" fill="none" stroke="#0a0a0a" stroke-width="1.5"/><text x="110" y="284" font-family="system-ui,sans-serif" font-size="10" fill="#0a0a0a" font-weight="850" text-anchor="middle" letter-spacing="1" text-transform="uppercase">Swipe to learn</text><path d="M 280 400 Q 320 390 305 420 Q 290 450 320 455" stroke="#f472b6" stroke-width="2.5" fill="none" opacity="0.6"/><circle cx="340" cy="50" r="50" fill="#93c5fd" opacity="0.12"/><text x="40" y="455" font-family="system-ui,sans-serif" font-size="9" fill="#9ca3af" font-weight="800" letter-spacing="1" text-transform="uppercase">reallygreatsite.com</text><text x="340" y="455" font-family="system-ui,sans-serif" font-size="9" fill="#9ca3af" font-weight="800">2026</text></svg>`),
-    "cyber-horizon": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><radialGradient id="ch" cx="50%" cy="85%" r="50%"><stop offset="0%" stop-color="#ea580c" stop-opacity="0.3"/><stop offset="100%" stop-color="#ea580c" stop-opacity="0"/></radialGradient><radialGradient id="sphere1" cx="35%" cy="30%" r="60%"><stop offset="0%" stop-color="rgba(255,255,255,0.45)"/><stop offset="40%" stop-color="rgba(234,88,12,0.3)"/><stop offset="80%" stop-color="rgba(244,63,94,0.1)"/><stop offset="100%" stop-color="rgba(5,5,5,0.8)"/></radialGradient><radialGradient id="sphere2" cx="35%" cy="30%" r="60%"><stop offset="0%" stop-color="rgba(255,255,255,0.3)"/><stop offset="40%" stop-color="rgba(234,88,12,0.2)"/><stop offset="100%" stop-color="rgba(5,5,5,0.9)"/></radialGradient></defs><rect width="400" height="500" fill="#050505"/><rect width="400" height="500" fill="url(#ch)"/><line x1="0" y1="80" x2="400" y2="80" stroke="#1c1917" stroke-width="1"/><line x1="0" y1="180" x2="400" y2="180" stroke="#1c1917" stroke-width="1"/><line x1="0" y1="280" x2="400" y2="280" stroke="#1c1917" stroke-width="1"/><line x1="0" y1="380" x2="400" y2="380" stroke="#1c1917" stroke-width="1"/><line x1="100" y1="0" x2="100" y2="500" stroke="#1c1917" stroke-width="1"/><line x1="200" y1="0" x2="200" y2="500" stroke="#1c1917" stroke-width="1"/><line x1="300" y1="0" x2="300" y2="500" stroke="#1c1917" stroke-width="1"/><circle cx="310" cy="380" r="45" fill="none" stroke="#ea580c" stroke-width="1.5" opacity="0.35"/><circle cx="310" cy="380" r="22" fill="#ea580c" opacity="0.12"/><circle cx="90" cy="130" r="35" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/><circle cx="90" cy="130" r="35" fill="url(#sphere1)"/><circle cx="320" cy="180" r="25" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/><circle cx="320" cy="180" r="25" fill="url(#sphere2)"/><rect x="30" y="25" width="110" height="22" rx="9999" fill="rgba(20,20,20,0.8)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/><text x="85" y="40" font-family="system-ui,sans-serif" font-size="9" fill="#a3a3a3" font-weight="700" text-anchor="middle">Introduction</text><text x="340" y="40" font-family="system-ui,sans-serif" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="700">1/5</text><text x="200" y="260" text-anchor="middle" font-family="system-ui,sans-serif" font-size="24" fill="white" font-weight="700">CYBER</text><text x="200" y="295" text-anchor="middle" font-family="system-ui,sans-serif" font-size="24" fill="#ea580c" font-weight="700">HORIZON</text></svg>`),
-    "linen-rust": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#d8d7cf"/><text x="200" y="45" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" fill="#a8a79a" font-weight="700" letter-spacing="3">* EDITORIAL *</text><text x="40" y="130" font-family="Georgia,serif" font-size="36" fill="#c5563c" font-style="italic" font-weight="400">Linen &amp; Rust</text><path d="M 40 165 Q 100 148 160 170 Q 220 192 280 168 Q 330 148 360 168" stroke="#c5563c" stroke-width="1.5" fill="none" opacity="0.35"/><rect x="40" y="190" width="60" height="3" fill="#c5563c"/><text x="40" y="235" font-family="system-ui,sans-serif" font-size="15" fill="#5c5553">Warm oatmeal, terracotta</text><text x="40" y="260" font-family="system-ui,sans-serif" font-size="15" fill="#5c5553">accents, handwritten scripts.</text><text x="58" y="340" font-family="system-ui,sans-serif" font-size="18" fill="#c5563c" opacity="0.45">*</text><text x="125" y="420" font-family="system-ui,sans-serif" font-size="14" fill="#c5563c" opacity="0.35">*</text><text x="290" y="300" font-family="system-ui,sans-serif" font-size="22" fill="#c5563c" opacity="0.3">*</text><text x="340" y="460" font-family="system-ui,sans-serif" font-size="12" fill="#c5563c" opacity="0.25">*</text><text x="40" y="455" font-family="system-ui,sans-serif" font-size="9" fill="rgba(46,43,42,0.45)" font-weight="700" letter-spacing="1">linen-rust</text><text x="340" y="455" font-family="system-ui,sans-serif" font-size="9" fill="rgba(46,43,42,0.45)" font-weight="700">* swipe</text></svg>`),
+    "mesh-glow": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><radialGradient id="mg1" cx="0%" cy="0%" r="25%"><stop offset="0%" stop-color="#ec4899" stop-opacity="0.25"/><stop offset="100%" stop-color="#ec4899" stop-opacity="0"/></radialGradient><radialGradient id="mg2" cx="100%" cy="100%" r="25%"><stop offset="0%" stop-color="#f472b6" stop-opacity="0.2"/><stop offset="100%" stop-color="#f472b6" stop-opacity="0"/></radialGradient></defs><rect width="400" height="500" fill="#fdf2f8"/><rect width="400" height="500" fill="url(#mg1)"/><rect width="400" height="500" fill="url(#mg2)"/><text x="30" y="50" font-family="Georgia,serif" font-size="28" fill="#ec4899" font-weight="800">*</text><text x="40" y="220" font-family="system-ui,sans-serif" font-size="36" fill="#0a0a0a" font-weight="900">Mesh Glow</text><path d="M 42 235 S 130 228 220 235 S 290 242 330 238" stroke="#ec4899" stroke-width="4" stroke-linecap="round" fill="none"/><rect x="40" y="265" width="140" height="28" rx="9999" fill="none" stroke="#0a0a0a" stroke-width="1.5"/><text x="110" y="284" font-family="system-ui,sans-serif" font-size="10" fill="#0a0a0a" font-weight="850" text-anchor="middle" letter-spacing="1" text-transform="uppercase">Swipe to learn</text><circle cx="340" cy="50" r="50" fill="#f472b6" opacity="0.12"/></svg>`),
+    "cyber-horizon": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#0a0a0a"/>${Array.from({length:10}).map((_,i)=>`<line x1="0" y1="${i*50}" x2="400" y2="${i*50}" stroke="#ea580c" stroke-opacity="0.1" stroke-width="1"/><line x1="${i*40}" y1="0" x2="${i*40}" y2="500" stroke="#ea580c" stroke-opacity="0.1" stroke-width="1"/>`).join("")}<text x="40" y="200" font-family="monospace" font-size="36" fill="#ea580c" font-weight="bold" letter-spacing="-1">Cyber</text><text x="40" y="240" font-family="monospace" font-size="36" fill="#ffffff" font-weight="bold" letter-spacing="-1">Horizon</text><rect x="40" y="270" width="120" height="4" fill="#3b82f6"/><rect x="40" y="300" width="100" height="30" fill="#ea580c" opacity="0.1" stroke="#ea580c" stroke-width="1"/><text x="90" y="318" font-family="monospace" font-size="10" fill="#ea580c" text-anchor="middle">[SYSTEM_READY]</text></svg>`),
+    "linen-rust": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><pattern id="lr-noise" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M 0 0 L 1 1 M 2 0 L 3 1" stroke="#b84a30" stroke-width="0.5" opacity="0.15"/></pattern></defs><rect width="400" height="500" fill="#d8d7cf"/><rect width="400" height="500" fill="url(#lr-noise)"/><text x="200" y="45" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8" fill="#a8a79a" font-weight="700" letter-spacing="3">* EDITORIAL *</text><text x="40" y="130" font-family="Georgia,serif" font-size="36" fill="#b84a30" font-style="italic" font-weight="400">Linen &amp; Rust</text><path d="M 40 165 Q 100 148 160 170 Q 220 192 280 168 Q 330 148 360 168" stroke="#b84a30" stroke-width="1.5" fill="none" opacity="0.35"/><rect x="40" y="190" width="60" height="3" fill="#b84a30"/><text x="40" y="235" font-family="system-ui,sans-serif" font-size="15" fill="#5c5553">Warm oatmeal, terracotta</text><text x="40" y="260" font-family="system-ui,sans-serif" font-size="15" fill="#5c5553">accents, organic texture.</text><text x="58" y="340" font-family="system-ui,sans-serif" font-size="18" fill="#b84a30" opacity="0.45">*</text><text x="125" y="420" font-family="system-ui,sans-serif" font-size="14" fill="#b84a30" opacity="0.35">*</text><text x="290" y="300" font-family="system-ui,sans-serif" font-size="22" fill="#b84a30" opacity="0.3">*</text><text x="340" y="460" font-family="system-ui,sans-serif" font-size="12" fill="#b84a30" opacity="0.25">*</text><rect x="250" y="435" width="110" height="30" rx="15" fill="rgba(184,74,48,0.07)" stroke="#b84a30" stroke-width="1.5"/><text x="305" y="455" font-family="Georgia,serif" font-style="italic" font-size="12" fill="#b84a30" font-weight="700" text-anchor="middle">Swipe next</text></svg>`),
+    "neo-brutalism": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><pattern id="dot-grid" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.5" fill="#141414" opacity="0.1"/></pattern></defs><rect width="400" height="500" fill="#F7F3EC"/><rect width="400" height="500" fill="url(#dot-grid)"/><rect x="0" y="0" width="400" height="40" fill="#F4623A"/><text x="20" y="24" font-family="system-ui,sans-serif" font-size="10" fill="#F7F3EC" font-weight="800" letter-spacing="2">INTRODUCTION</text><text x="380" y="24" font-family="system-ui,sans-serif" font-size="10" fill="#F7F3EC" font-weight="800" text-anchor="end">1/5</text><rect x="35" y="150" width="330" height="150" rx="12" fill="#2EC4B6"/><rect x="25" y="140" width="330" height="150" rx="12" fill="#F7F3EC" stroke="#141414" stroke-width="3"/><text x="45" y="195" font-family="Georgia,serif" font-size="38" fill="#F4623A" font-weight="900" font-style="italic" letter-spacing="-1">Neo-Brutalism</text><text x="45" y="235" font-family="system-ui,sans-serif" font-size="15" fill="#141414" font-weight="700">Loud, proud, heavily shadowed.</text><rect x="25" y="420" width="100" height="24" rx="12" fill="#FFD400"/><rect x="20" y="415" width="100" height="24" rx="12" fill="#FFD400" stroke="#141414" stroke-width="2"/><text x="70" y="432" font-family="system-ui,sans-serif" font-size="10" fill="#141414" font-weight="800" text-anchor="middle">@username</text></svg>`),
+    "neomorphism": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><radialGradient id="neo-bg" cx="0%" cy="0%" r="100%"><stop offset="0%" stop-color="rgba(255,255,255,0.4)"/><stop offset="60%" stop-color="#E4E0DA"/><stop offset="100%" stop-color="rgba(0,0,0,0.05)"/></radialGradient><filter id="neo-shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur1"/><feOffset dx="-6" dy="-6" result="offset1"/><feFlood flood-color="#ffffff" flood-opacity="0.8"/><feComposite in2="offset1" operator="in" result="shadow1"/><feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur2"/><feOffset dx="6" dy="6" result="offset2"/><feFlood flood-color="#000000" flood-opacity="0.15"/><feComposite in2="offset2" operator="in" result="shadow2"/><feMerge><feMergeNode in="shadow1"/><feMergeNode in="shadow2"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect width="400" height="500" fill="url(#neo-bg)"/><rect x="40" y="140" width="320" height="200" rx="20" fill="#E4E0DA" filter="url(#neo-shadow)"/><text x="200" y="220" font-family="system-ui,sans-serif" font-size="34" fill="#E8503A" font-weight="700" letter-spacing="-1" text-anchor="middle">Neomorphism</text><text x="200" y="260" font-family="system-ui,sans-serif" font-size="15" fill="#5a5a5a" font-weight="500" text-anchor="middle">Soft extruded clay-like UI.</text><rect x="150" y="380" width="100" height="30" rx="15" fill="#E4E0DA" filter="url(#neo-shadow)"/><text x="200" y="400" font-family="system-ui,sans-serif" font-size="12" fill="#5a5a5a" font-weight="700" text-anchor="middle">SWIPE &gt;</text></svg>`),
+    "frosted-grid": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#f8fafc"/>${Array.from({length: 10}).map((_, i) => `<line x1="${i*40}" y1="0" x2="${i*40}" y2="500" stroke="rgba(0,0,0,0.03)" stroke-width="1"/>`).join("")}<defs><radialGradient id="fg1" cx="50%" cy="100%" r="60%"><stop offset="0%" stop-color="#a855f7" stop-opacity="0.8"/><stop offset="100%" stop-color="#a855f7" stop-opacity="0"/></radialGradient></defs><rect width="400" height="500" fill="url(#fg1)"/>${Array.from({length: 20}).map((_, i) => { const col = i%4; const row = Math.floor(i/4); const startRow = [2, 1, 2, 3][col]; if (row >= startRow) return `<rect x="${col*40+40}" y="${row*40+150}" width="40" height="40" rx="8" fill="rgba(255,255,255,0.4)" stroke="rgba(255,255,255,0.8)" stroke-width="1"/>`; return ""; }).join("")}<text x="40" y="100" font-family="system-ui,sans-serif" font-size="42" fill="#000000" font-weight="900">Frosted</text><text x="40" y="140" font-family="system-ui,sans-serif" font-size="42" fill="#a855f7" font-weight="900">Grid</text></svg>`),
+    "glassmorphism": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="gl-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#f8fafc"/></linearGradient></defs><rect width="400" height="500" fill="url(#gl-bg)"/>${Array.from({length: 3}).map((_, i) => `<rect x="${40 + i*10}" y="${150 + i*20}" width="280" height="180" rx="16" fill="rgba(255,255,255,0.5)" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" style="box-shadow: 0 20px 40px rgba(15,23,42,0.04), inset 0 0 0 1px rgba(255,255,255,0.3)"/>`).join("")}<text x="180" y="250" font-family="system-ui,sans-serif" font-size="28" fill="#1e293b" font-weight="800" text-anchor="middle" letter-spacing="-1">Glassmorphism</text></svg>`),
+    "liquid-glass": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="lq-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><rect width="400" height="500" fill="#f8fafc"/><rect x="40" y="150" width="320" height="200" rx="100" fill="rgba(255,255,255,0.4)" stroke="rgba(255,255,255,0.9)" stroke-width="3" style="box-shadow: inset 0px 8px 16px rgba(255,255,255,1), inset 0px -8px 16px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.1)"/><circle cx="90" cy="250" r="30" fill="url(#lq-grad)"/><text x="220" y="262" font-family="system-ui,sans-serif" font-size="32" fill="#0f172a" font-weight="800" text-anchor="middle" letter-spacing="-1">Liquid Glass</text></svg>`),
+    "sketch": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#fdfaf6"/><defs><pattern id="hatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="8" stroke="#2d2d2d" stroke-width="1" opacity="0.3"/></pattern></defs><rect x="40" y="150" width="320" height="200" fill="url(#hatch)"/><path d="M 38 148 L 362 152 L 358 352 L 42 348 Z" fill="none" stroke="#2d2d2d" stroke-width="2" stroke-linecap="round"/><path d="M 42 152 L 358 148 L 362 348 L 38 352 Z" fill="none" stroke="#2d2d2d" stroke-width="1.5" stroke-linecap="round"/><text x="200" y="260" font-family="cursive, system-ui" font-size="42" fill="#2d2d2d" font-weight="700" text-anchor="middle" transform="rotate(-2 200 260)">Sketch</text></svg>`),
   };
 
   // Show hardcoded preview instantly, then upgrade with live render in background
@@ -219,6 +244,7 @@ export default function Home() {
                 imageLayout: s.imageLayout || "inline",
                 visualType: s.visualType || "text-only",
                 visualData: s.visualData || null,
+                paletteOverride,
               }],
               themeName,
               username,
@@ -236,7 +262,7 @@ export default function Home() {
       upgradePreview();
       return () => { active = false; };
     }
-  }, [step, themeName, username, websiteUrl, slides]);
+  }, [step, themeName, username, websiteUrl, slides, paletteOverride]);
 
   // Load draft from localStorage on mount
   useEffect(() => {
@@ -253,6 +279,7 @@ export default function Home() {
         if (typeof parsed.scribble === "boolean") setScribble(parsed.scribble);
         if (parsed.extractedData) setExtractedData(parsed.extractedData);
         if (parsed.maxUnlockedStep) setMaxUnlockedStep(parsed.maxUnlockedStep);
+        if (parsed.paletteOverride) setPaletteOverride(parsed.paletteOverride);
       } catch (e) {
         console.warn("Failed to restore draft from localStorage", e);
       }
@@ -272,10 +299,16 @@ export default function Home() {
         websiteUrl,
         scribble,
         extractedData,
-        maxUnlockedStep: maxStep
+        maxUnlockedStep: maxStep,
+        paletteOverride
       })
     );
   };
+
+  // Invalidate rendered image cache when palette changes
+  useEffect(() => {
+    setAllThemeImages({});
+  }, [paletteOverride]);
 
   // Re-trigger rendering on step 4 transition — renders only the active theme
   useEffect(() => {
@@ -634,6 +667,7 @@ export default function Home() {
       const canvasSlides = approved.filter(s => s.manuallyEdited && s.canvasPngUrl);
 
       // Single batched API call for non-canvas-edited slides only
+      const palette = paletteOverride || undefined;
       const aiSlides = nonCanvasSlides.map(s => ({
         type: s.type,
         title: s.userTitle,
@@ -643,6 +677,7 @@ export default function Home() {
         shapes: s.shapes || [],
         visualType: s.visualType || "text-only",
         visualData: s.visualData || null,
+        paletteOverride: palette,
       }));
 
       let apiResults: string[] = [];
@@ -911,7 +946,7 @@ export default function Home() {
     return elements;
   };
 
-  const openCanvasEditor = (approvedIdx: number) => {
+  const openCanvasEditor = async (approvedIdx: number) => {
     const approved = slides.filter(s => s.approved);
     const target = approved[approvedIdx];
     if (!target) return;
@@ -923,6 +958,42 @@ export default function Home() {
       const updated = [...slides];
       updated[baseIdx].elements = autoGenerateElements(slides[baseIdx]);
       setSlides(updated);
+    }
+
+    // Fetch background-only render
+    setCanvasBgImage(null);
+    try {
+      const payload = {
+        slides: [{
+          type: target.type,
+          title: target.userTitle || target.aiTitle || "",
+          body: target.userBody || target.aiBody || "",
+          themeName,
+          username: "",
+          imageUrl: target.imageUrl || null,
+          imageLayout: target.imageLayout || "inline",
+          shapes: target.shapes || [],
+          visualType: target.visualType || "text-only",
+          visualData: target.visualData || {},
+          scribble: false,
+        }],
+        themeName,
+        username: "",
+        websiteUrl: "",
+        scribble: false,
+        backgroundOnly: true,
+      };
+      const res = await fetch("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.images?.[0]) {
+        setCanvasBgImage(json.data.images[0]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch background image:", err);
     }
 
     setEditingSlideIdx(approvedIdx);
@@ -1017,7 +1088,7 @@ export default function Home() {
     }
   };
 
-  // ZIP export
+  // ZIP / Single Image export
   const handleExportZip = async () => {
     const indicesToExport = Object.keys(selectedForExport)
       .map(Number)
@@ -1054,26 +1125,38 @@ export default function Home() {
         })
       );
 
-      const res = await fetch("/api/export-zip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: payloadImages })
-      });
+      if (payloadImages.length === 1) {
+        // Direct download for a single image
+        const { fileName, dataUri } = payloadImages[0];
+        const a = document.createElement("a");
+        a.href = dataUri;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        // Zip download for multiple images
+        const res = await fetch("/api/export-zip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ images: payloadImages })
+        });
 
-      if (!res.ok) throw new Error("Failed to compile ZIP archive.");
+        if (!res.ok) throw new Error("Failed to compile ZIP archive.");
 
-      const baseName = extractedData?.title ? sanitizeFilename(extractedData.title) : "carousel-export";
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${baseName}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+        const baseName = extractedData?.title ? sanitizeFilename(extractedData.title) : "carousel-export";
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${baseName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to download ZIP file.");
+      setError(err.message || "Failed to download export.");
     } finally {
       setIsExporting(false);
     }
@@ -1204,6 +1287,13 @@ export default function Home() {
     saveDraftLocally(updated);
   };
 
+  const steps = [
+    { num: 1, label: "Extract" },
+    { num: 2, label: "Review" },
+    { num: 3, label: "Theme" },
+    { num: 4, label: "Export" },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
       
@@ -1211,45 +1301,55 @@ export default function Home() {
       <StageErrorBoundary stageName="Carousel Wizard">
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-12 flex flex-col justify-start">
         
-        {/* Step Indicator Panel (Pictured style) */}
+        {/* Step Indicator Panel */}
         <div className="mb-12 max-w-2xl mx-auto w-full">
-          <div className="relative flex justify-between items-center w-full">
-            {/* Horizontal Line connecting steps */}
-            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-neutral-200 z-0" />
+          <div className="relative flex items-start w-full">
+            {/* Connector track — precisely aligns through circle centres */}
+            <div className="absolute top-[18px] -translate-y-1/2 h-0.5 bg-neutral-200 z-0"
+                 style={{ left: 'calc(12.5% - 18px)', right: 'calc(12.5% - 18px)' }} />
 
-            {[
-              { num: 1, label: "Extract" },
-              { num: 2, label: "Review" },
-              { num: 3, label: "Theme" },
-              { num: 4, label: "Export" }
-            ].map((s) => {
-              // Gating rules: disable if s.num is greater than maxUnlockedStep
+            {/* Blue fill overlay — water rising across the whole stepper */}
+            <motion.div
+              className="absolute top-[18px] -translate-y-1/2 h-0.5 bg-blue-500 z-0 origin-left"
+              style={{ left: 'calc(12.5% - 18px)', right: 'calc(12.5% - 18px)' }}
+              animate={{ scaleX: (step - 1) / (steps.length - 1) }}
+              transition={{ duration: 0.6, ease: 'easeInOut' }}
+            />
+
+            {steps.map((s) => {
               const isStepButtonDisabled = s.num > maxUnlockedStep;
+
+              const status = s.num < step ? 'completed' : s.num === step ? 'active' : 'upcoming';
+              const fillPercent = status === 'completed' ? 100 : status === 'active' ? 50 : 0;
 
               return (
                 <button
                   key={s.num}
                   disabled={isStepButtonDisabled}
                   onClick={() => setStep(s.num)}
-                  className={`relative z-10 flex flex-col items-center focus:outline-none transition-all ${
+                  className={`flex-1 relative z-10 flex flex-col items-center focus:outline-none transition-all ${
                     isStepButtonDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
                   }`}
                   title={isStepButtonDisabled ? "Please complete the previous step to unlock." : ""}
                 >
-                  <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-300 font-semibold text-sm ${
-                      step === s.num
-                        ? "bg-blue-500 border-blue-500 text-white shadow-md shadow-blue-500/20 scale-105"
-                        : step > s.num
-                        ? "bg-blue-500 border-blue-500 text-white"
-                        : "bg-white border-neutral-200 text-neutral-400 hover:border-neutral-300"
-                    }`}
-                  >
-                    {step > s.num ? <Check className="h-4.5 w-4.5 stroke-[3]" /> : s.num}
+                  <div className={`relative w-9 h-9 rounded-full border-2 overflow-hidden bg-white ${
+                    status === 'upcoming' ? 'border-neutral-200' : 'border-blue-500'
+                  }`}>
+                    <motion.div
+                      className="absolute bottom-0 left-0 right-0 bg-blue-500"
+                      initial={false}
+                      animate={{ height: `${fillPercent}%` }}
+                      transition={{ duration: 0.6, ease: 'easeInOut' }}
+                    />
+                    <span className={`relative z-10 flex items-center justify-center w-full h-full text-sm font-bold ${
+                      step > s.num || step === s.num ? 'text-white' : 'text-neutral-400'
+                    }`}>
+                      {step > s.num ? <Check className="h-4.5 w-4.5 stroke-[3]" /> : s.num}
+                    </span>
                   </div>
                   <span
                     className={`mt-2 text-xs font-semibold tracking-wide transition-all ${
-                      step === s.num ? "text-blue-600 font-bold" : "text-neutral-500"
+                      step === s.num || step > s.num ? "text-blue-600 font-bold" : "text-neutral-500"
                     }`}
                   >
                     {s.label}
@@ -1801,14 +1901,16 @@ export default function Home() {
                         : "border-neutral-200 hover:border-neutral-300"
                     }`}
                   >
-                    <div className="h-28 w-full bg-gradient-to-tr from-blue-100 to-pink-100 flex items-center justify-center p-4 relative">
-                      <span className="text-xl font-bold text-blue-500 absolute top-2 left-4">*</span>
-                      <span className="text-lg font-black text-neutral-950 tracking-tighter font-sans">Mesh Glow</span>
+                    <div className="h-28 w-full bg-white flex items-center justify-center p-4 relative overflow-hidden">
+                      <div className="absolute -top-10 -left-10 w-32 h-32 bg-pink-400 rounded-full mix-blend-multiply filter blur-2xl opacity-20"></div>
+                      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-pink-500 rounded-full mix-blend-multiply filter blur-2xl opacity-20"></div>
+                      <span className="text-xl font-bold text-pink-500 absolute top-2 left-4">*</span>
+                      <span className="text-lg font-black text-neutral-950 tracking-tighter font-sans z-10">Mesh Glow</span>
                     </div>
                     <div className="p-4 flex-1 flex flex-col justify-center">
                       <h3 className="font-extrabold text-neutral-900 text-xs">Mesh Glow</h3>
                       <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        White base, neon mesh corner aura, pink scribble accents.
+                        White base, 10% corner aura in pink/purple, clean.
                       </p>
                     </div>
                   </button>
@@ -1863,6 +1965,166 @@ export default function Home() {
                     </div>
                   </button>
 
+                  {/* Neo-Brutalism theme card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeName("neo-brutalism");
+                      saveDraftLocally();
+                    }}
+                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
+                      themeName === "neo-brutalism"
+                        ? "border-blue-500 ring-2 ring-blue-500/10"
+                        : "border-neutral-200 hover:border-neutral-300"
+                    }`}
+                  >
+                    <div className="h-28 w-full bg-[#F5F3EE] flex items-center justify-center p-4 border-b-[3px] border-[#161616]">
+                      <span className="text-lg font-black text-[#161616] uppercase tracking-tight" style={{ transform: "rotate(-1deg)" }}>Neo-Brutalism</span>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-center">
+                      <h3 className="font-extrabold text-neutral-900 text-xs">Neo-Brutalism</h3>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
+                        Off-white canvas, hard shadows, thick borders, bold accent color.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Neomorphism theme card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeName("neomorphism");
+                      saveDraftLocally();
+                    }}
+                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
+                      themeName === "neomorphism"
+                        ? "border-blue-500 ring-2 ring-blue-500/10"
+                        : "border-neutral-200 hover:border-neutral-300"
+                    }`}
+                  >
+                    <div className="h-28 w-full bg-[#E4E0DA] flex items-center justify-center p-4">
+                      <div style={{ boxShadow: "-6px -6px 12px rgba(255,255,255,0.6), 6px 6px 12px rgba(0,0,0,0.1)", borderRadius: "16px", padding: "12px 24px", background: "#E4E0DA" }}>
+                        <span className="text-lg font-bold text-[#2B2B2B] tracking-tight">Neomorphism</span>
+                      </div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-center">
+                      <h3 className="font-extrabold text-neutral-900 text-xs">Neomorphism</h3>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
+                        Soft extruded surfaces, dual shadows, monochromatic tactility.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Frosted Grid theme card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeName("frosted-grid");
+                      saveDraftLocally();
+                    }}
+                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
+                      themeName === "frosted-grid"
+                        ? "border-blue-500 ring-2 ring-blue-500/10"
+                        : "border-neutral-200 hover:border-neutral-300"
+                    }`}
+                  >
+                    <div className="h-28 w-full bg-neutral-50 flex items-center justify-center p-4 relative overflow-hidden">
+                      {/* background grid lines */}
+                      <div className="absolute inset-0 opacity-10 flex space-x-[20px]">
+                         {[...Array(10)].map((_,i) => <div key={i} className="w-px h-full bg-black"></div>)}
+                      </div>
+                      <div className="absolute -bottom-10 right-0 left-0 h-24 bg-purple-500 rounded-t-full filter blur-xl opacity-60"></div>
+                      <div className="backdrop-blur-sm bg-white/70 border-t border-l border-white shadow-sm rounded-xl px-4 py-2 z-10">
+                        <span className="text-sm font-bold text-neutral-900 tracking-tight">Frosted Grid</span>
+                      </div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-center border-t border-neutral-100">
+                      <h3 className="font-extrabold text-neutral-900 text-xs">Frosted Grid</h3>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
+                        White line grid top, frosted glass waves over purple bottom.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* New Glassmorphism theme card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeName("glassmorphism");
+                      saveDraftLocally();
+                    }}
+                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
+                      themeName === "glassmorphism"
+                        ? "border-blue-500 ring-2 ring-blue-500/10"
+                        : "border-neutral-200 hover:border-neutral-300"
+                    }`}
+                  >
+                    <div className="h-28 w-full bg-gradient-to-br from-[#e2e8f0] to-[#f8fafc] flex items-center justify-center p-4">
+                      <div className="backdrop-blur-md bg-white/50 border-t border-l border-white/90 rounded-2xl px-5 py-2.5 shadow-[0_12px_24px_rgba(15,23,42,0.04)]">
+                        <span className="text-lg font-bold text-slate-800 tracking-tight">Glassmorphism</span>
+                      </div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-center">
+                      <h3 className="font-extrabold text-neutral-900 text-xs">Glassmorphism</h3>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
+                        Soft misty-blue background, frosted panels, clean aesthetic.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Liquid Glass theme card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeName("liquid-glass");
+                      saveDraftLocally();
+                    }}
+                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
+                      themeName === "liquid-glass"
+                        ? "border-blue-500 ring-2 ring-blue-500/10"
+                        : "border-neutral-200 hover:border-neutral-300"
+                    }`}
+                  >
+                    <div className="h-28 w-full bg-[#f8fafc] flex items-center justify-center p-4">
+                      <div className="bg-white/40 border border-white/90 rounded-full px-6 py-2 shadow-inner">
+                        <span className="text-lg font-bold text-neutral-900 tracking-tight drop-shadow-sm">Liquid Glass</span>
+                      </div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-center">
+                      <h3 className="font-extrabold text-neutral-900 text-xs">Liquid Glass</h3>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
+                        Thick refractive glass, pill-shaped UI, vibrant gradient accents.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Sketch theme card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeName("sketch");
+                      saveDraftLocally();
+                    }}
+                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-[#fdfaf6] shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
+                      themeName === "sketch"
+                        ? "border-[#2d2d2d] ring-2 ring-[#2d2d2d]/10"
+                        : "border-neutral-200 hover:border-neutral-300"
+                    }`}
+                  >
+                    <div className="h-28 w-full flex items-center justify-center p-4 relative overflow-hidden" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(45,45,45,0.05) 5px, rgba(45,45,45,0.05) 6px)" }}>
+                      <div className="bg-[#fdfaf6] border-2 border-[#2d2d2d] px-5 py-2.5 transform -rotate-2 relative">
+                         <div className="absolute inset-0 border border-[#2d2d2d] transform rotate-1"></div>
+                        <span className="text-xl font-bold text-[#2d2d2d] tracking-tight" style={{ fontFamily: "cursive, system-ui" }}>Sketch</span>
+                      </div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-center bg-white border-t border-neutral-100">
+                      <h3 className="font-extrabold text-neutral-900 text-xs">Sketch</h3>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
+                        Hand-drawn hatching, rough borders, and irregular alignments.
+                      </p>
+                    </div>
+                  </button>
+
                 </div>
 
                 {/* Social Username Handle card */}
@@ -1882,6 +2144,61 @@ export default function Home() {
                     }}
                     className="w-full max-w-sm bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-neutral-900 focus:outline-none focus:border-blue-500 font-semibold text-sm"
                   />
+                </div>
+
+                {/* Color Palette Customization */}
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
+                      Color Palette
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const available = PALETTE_PRESETS.filter(p => p.name !== paletteOverride?.name);
+                        if (available.length > 0) {
+                          const pick = available[Math.floor(Math.random() * available.length)];
+                          setPaletteOverride(pick);
+                          saveDraftLocally();
+                        }
+                      }}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
+                    >
+                      Shuffle
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {(["background", "text", "primary", "secondary", "tertiary"] as const).map((role) => {
+                      const label = { background: "Bg", text: "Text", primary: "Primary", secondary: "Secondary", tertiary: "Tertiary" }[role];
+                      const currentVal = paletteOverride?.[role] || "";
+                      return (
+                        <div key={role} className="flex flex-col items-center gap-1.5">
+                          <div className="relative w-8 h-8 rounded-full overflow-hidden border border-neutral-300" style={{ backgroundColor: currentVal || "#e5e7eb" }}>
+                            <input
+                              type="color"
+                              value={currentVal || "#cccccc"}
+                              onChange={(e) => {
+                                const next = { ...(paletteOverride || PALETTE_PRESETS[0]), [role]: e.target.value, name: paletteOverride?.name || "Custom" };
+                                setPaletteOverride(next);
+                                saveDraftLocally();
+                              }}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                          </div>
+                          <span className="text-[10px] font-semibold text-neutral-500">{label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {paletteOverride && (
+                    <button
+                      type="button"
+                      onClick={() => { setPaletteOverride(null); saveDraftLocally(); }}
+                      className="text-xs font-medium text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+                    >
+                      Reset to theme defaults
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2489,7 +2806,9 @@ export default function Home() {
             onClose={() => {
               setIsCanvasEditorOpen(false);
               setEditingSlideIdx(null);
+              setCanvasBgImage(null);
             }}
+            bgImageUrl={canvasBgImage || undefined}
           />
         );
       })()}
