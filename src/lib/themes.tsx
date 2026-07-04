@@ -2983,12 +2983,13 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
     const sketchCodeStyle: React.CSSProperties = {
       fontFamily: "JetBrains Mono",
       fontSize: "inherit",
-      backgroundColor: "rgba(45,45,45,0.04)",
-      color: text,
+      backgroundColor: "#2d2d2d",
+      color: "#e8e8e8",
       padding: "4px 12px",
       borderRadius: "8px",
       margin: "0 4px",
-      border: `1px solid ${gridLineStrong}`,
+      border: `1px solid rgba(45,45,45,0.4)`,
+      letterSpacing: "0px",
     };
 
     return (
@@ -3094,8 +3095,18 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
                 {(() => {
                   if (visualType === "code-block") {
                     return (
-                      <div style={{ display: "flex", border: `1px solid ${gridLineStrong}`, padding: "24px", borderRadius: "16px", marginBottom: "30px", backgroundColor: "#fff", boxShadow: cardShadow }}>
-                        {renderCodeBlock(visualData, "light")}
+                      <div style={{ display: "flex", flexDirection: "column", borderRadius: "20px", overflow: "hidden", border: `1.5px solid ${gridLineStrong}`, boxShadow: cardShadow, marginBottom: "30px", maxWidth: "900px" }}>
+                        <div style={{ display: "flex", padding: "10px 20px", backgroundColor: "#1e1e1e", borderBottom: "1px solid #333" }}>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#ff5f57" }} />
+                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#febc2e" }} />
+                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#28c840" }} />
+                          </div>
+                          <span style={{ flex: 1, textAlign: "center", fontSize: "13px", fontFamily: "JetBrains Mono", color: "rgba(255,255,255,0.4)" }}>
+                            {visualData?.language || "code"}
+                          </span>
+                        </div>
+                        {renderCodeBlock(visualData, "dark")}
                       </div>
                     );
                   }
