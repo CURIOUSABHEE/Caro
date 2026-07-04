@@ -66,7 +66,7 @@ function renderWithResvg(svg: string): string {
   }
 }
 
-function buildSlideArgs(slide: any, i: number, totalSlides: number, themeName: string, username: string, websiteUrl: string, scribble: boolean) {
+function buildSlideArgs(slide: any, i: number, totalSlides: number, themeName: string, username: string, websiteUrl: string, scribble: boolean, backgroundOnly: boolean = false) {
   return {
     type: slide.type,
     title: slide.title,
@@ -82,6 +82,8 @@ function buildSlideArgs(slide: any, i: number, totalSlides: number, themeName: s
     visualData: slide.visualData,
     websiteUrl,
     scribble,
+    backgroundOnly,
+    paletteOverride: slide.paletteOverride,
   };
 }
 
@@ -102,15 +104,15 @@ async function tokenizeSlideCode(slide: any, themeName: string): Promise<any> {
   return slide.visualData;
 }
 
-async function renderSingleSlide(slide: any, i: number, totalSlides: number, themeName: string, username: string, websiteUrl: string, scribble: boolean, fonts: SatoriFont[]): Promise<string> {
+async function renderSingleSlide(slide: any, i: number, totalSlides: number, themeName: string, username: string, websiteUrl: string, scribble: boolean, fonts: SatoriFont[], backgroundOnly: boolean = false): Promise<string> {
   // Retry once, then fallback to text-only on persistent failure
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const visualData = attempt === 1
-        ? {}  // fallback: strip visual data
+        ? {}
         : await tokenizeSlideCode(slide, themeName);
       const renderArgs = {
-        ...buildSlideArgs(slide, i, totalSlides, themeName, username, websiteUrl, scribble),
+        ...buildSlideArgs(slide, i, totalSlides, themeName, username, websiteUrl, scribble, backgroundOnly),
         visualType: attempt === 1 ? "text-only" : slide.visualType,
         visualData,
       };
@@ -118,7 +120,7 @@ async function renderSingleSlide(slide: any, i: number, totalSlides: number, the
       const svg = await satori(jsx, { width: 1080, height: 1350, fonts });
       return renderWithResvg(svg);
     } catch (err: any) {
-      console.error(`[API Render] Slide ${i} attempt ${attempt + 1} failed:`, err.message);
+      console.error(`[API Render] Slide ${i} (theme: ${themeName}, visualType: ${slide.visualType}) attempt ${attempt + 1} failed:`, err.message);
       if (attempt === 0) {
         await new Promise(r => setTimeout(r, 200));
       } else {
@@ -148,7 +150,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { slides, themeName, username, websiteUrl, scribble } = validation.data;
+    const { slides, themeName, username, websiteUrl, scribble, backgroundOnly } = validation.data;
     
     if (!slides || slides.length === 0) {
       return NextResponse.json(
@@ -164,7 +166,7 @@ export async function POST(req: Request) {
     // Render all slides in parallel — individual failures don't kill the batch
     const results = await Promise.allSettled(
       slides.map((slide, i) =>
-        renderSingleSlide(slide, i, total, themeName, username, websiteUrl, scribble, fonts)
+        renderSingleSlide(slide, i, total, themeName, username, websiteUrl, scribble, fonts, backgroundOnly)
       )
     );
 

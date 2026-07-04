@@ -46,6 +46,14 @@ export const FillVisualDataSchema = z.object({
 });
 
 // Step 4: Render Slide validator
+export const PaletteOverrideSchema = z.object({
+  background: z.string().optional(),
+  text: z.string().optional(),
+  primary: z.string().optional(),
+  secondary: z.string().optional(),
+  tertiary: z.string().optional(),
+}).optional();
+
 export const RenderSlideSchema = z.object({
   type: z.enum(["COVER", "CONTENT", "CLOSING"]),
   title: z.string(),
@@ -58,6 +66,7 @@ export const RenderSlideSchema = z.object({
   visualType: z.enum(["step-chain", "venn", "wheel", "concentric", "icon-grid", "code-block", "text-only", "quote", "stat", "table"]).default("text-only").optional(),
   visualData: z.any().optional(),
   scribble: z.boolean().optional().default(false),
+  paletteOverride: PaletteOverrideSchema.nullable().optional(),
 });
 
 export const RenderProjectSchema = z.object({
@@ -66,6 +75,7 @@ export const RenderProjectSchema = z.object({
   username: z.string().default(""),
   websiteUrl: z.string().default(""),
   scribble: z.boolean().optional().default(false),
+  backgroundOnly: z.boolean().optional().default(false),
 });
 
 // Step 4.5: Export Zip validator
