@@ -15,6 +15,14 @@ export interface Shape {
   fontSize?: number;
 }
 
+export interface PaletteOverride {
+  background?: string;
+  text?: string;
+  primary?: string;
+  secondary?: string;
+  tertiary?: string;
+}
+
 export interface RenderSlideInput {
   type: SlideType;
   title: string;
@@ -30,6 +38,7 @@ export interface RenderSlideInput {
   visualData?: any;
   websiteUrl?: string;
   scribble?: boolean;
+  paletteOverride?: PaletteOverride;
 }
 
 // Replaces unicode hyphens, fancy quotes, non-breaking spaces with standard ASCII equivalents to prevent tofu placeholders
@@ -72,6 +81,18 @@ const SwipeArrow = ({ color = "currentColor" }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 8 }}>
     <path d="M5 12H19" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M12 5L19 12L12 19" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const StarAccent = ({ color, size = 24 }: { color: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5Z" fill={color} stroke="#141414" strokeWidth="1.5" strokeLinejoin="round" />
+  </svg>
+);
+
+const BurstAccent = ({ color, size = 40 }: { color: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+    <path d="M20 2L23 12L33 15L23 18L20 28L17 18L7 15L17 12Z" fill={color} stroke="#141414" strokeWidth="1.5" strokeLinejoin="round" />
   </svg>
 );
 
@@ -165,37 +186,31 @@ const PanoramicBackground = ({ theme, order = 0, totalSlides = 1 }: { order?: nu
   // Programmatic mesh-glow blobs projection using max two colors per slide
   const meshBlobs: { cx: number; cy: number; r: number; color1: string; color2: string; opacity: number }[] = [];
   if (theme === "mesh-glow") {
-    // Limited to Orange-Red (#ff5d2b), Blue (#0077ff), and Purple (#8a2be2) — two per slide
+    // Limited to Pink (#ec4899) and Purple (#a855f7) — two colors total
     const startSlide = Math.max(0, order - 1);
     const endSlide = order + 1;
 
     for (let s = startSlide; s <= endSlide; s++) {
       const baseOffset = s * width - order * width;
       if (s === 0) {
-        // Slide 0: Cover — Orange-Red + Blue
+        // Slide 0: Cover
         meshBlobs.push(
-          { cx: 950 - order * width, cy: 120, r: 420, color1: "#ff5d2b", color2: "#ff863b", opacity: 0.9 },
-          { cx: 310 - order * width, cy: 1180, r: 460, color1: "#0077ff", color2: "#00bfff", opacity: 0.95 }
+          { cx: 950 - order * width, cy: 150, r: 250, color1: "#ec4899", color2: "#db2777", opacity: 0.7 },
+          { cx: 200 - order * width, cy: 1150, r: 280, color1: "#a855f7", color2: "#9333ea", opacity: 0.75 }
         );
       } else {
-        const layoutType = s % 3;
+        const layoutType = s % 2;
         if (layoutType === 1) {
-          // Layout A: Blue top-right + Orange bottom-right
+          // Layout A: Purple top-right + Pink bottom-left
           meshBlobs.push(
-            { cx: baseOffset + 920, cy: 150, r: 410, color1: "#0077ff", color2: "#00bfff", opacity: 0.9 },
-            { cx: baseOffset + 370, cy: 1200, r: 450, color1: "#ff5d2b", color2: "#ff863b", opacity: 0.85 }
-          );
-        } else if (layoutType === 2) {
-          // Layout B: Purple top-right + Blue bottom-right
-          meshBlobs.push(
-            { cx: baseOffset + 950, cy: 200, r: 430, color1: "#8a2be2", color2: "#ba55d3", opacity: 0.85 },
-            { cx: baseOffset + 330, cy: 1180, r: 440, color1: "#0077ff", color2: "#00bfff", opacity: 0.9 }
+            { cx: baseOffset + 850, cy: 200, r: 250, color1: "#a855f7", color2: "#9333ea", opacity: 0.7 },
+            { cx: baseOffset + 300, cy: 1150, r: 280, color1: "#ec4899", color2: "#db2777", opacity: 0.75 }
           );
         } else {
-          // Layout C: Orange top-right + Blue bottom-left
+          // Layout B: Pink top-right + Purple bottom-left
           meshBlobs.push(
-            { cx: baseOffset + 900, cy: 100, r: 400, color1: "#ff5d2b", color2: "#ff863b", opacity: 0.9 },
-            { cx: baseOffset + 250, cy: 1180, r: 460, color1: "#0077ff", color2: "#00bfff", opacity: 0.95 }
+            { cx: baseOffset + 950, cy: 150, r: 260, color1: "#ec4899", color2: "#db2777", opacity: 0.75 },
+            { cx: baseOffset + 200, cy: 1150, r: 240, color1: "#a855f7", color2: "#9333ea", opacity: 0.7 }
           );
         }
       }
@@ -233,9 +248,9 @@ const PanoramicBackground = ({ theme, order = 0, totalSlides = 1 }: { order?: nu
       {theme === "mesh-glow" && (
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} fill="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
           <defs>
-            {/* Soft, heavy blur filter for organic color mixing */}
+            {/* Soft blur filter for organic color mixing, reduced blur so it doesn't spread too much */}
             <filter id="mesh-glow-blur" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="130" />
+              <feGaussianBlur stdDeviation="80" />
             </filter>
             
             {meshBlobs.map((blob, idx) => (
@@ -373,10 +388,11 @@ const StepChain = ({ data, colors }: { data: any; colors: any }) => {
   const steps = data?.steps || [];
   if (!Array.isArray(steps) || steps.length === 0) return null;
   const visibleSteps = steps.slice(0, 4);
+  const cardBorderRadius = colors?.cardBorderRadius || "16px";
   return (
     <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", padding: "20px 0", position: "relative" }}>
       {visibleSteps.map((step: any, idx: number) => (
-        <div key={idx} style={{ display: "flex", flexDirection: "row", alignItems: "center", flex: 1 }}>
+        <div key={idx} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", flex: 1, position: "relative", marginRight: idx < visibleSteps.length - 1 ? "32px" : "0" }}>
           {/* Card */}
           <div
             style={{
@@ -387,11 +403,12 @@ const StepChain = ({ data, colors }: { data: any; colors: any }) => {
               position: "relative",
               backgroundColor: colors.glassBg || "rgba(255, 255, 255, 0.4)",
               border: `1.5px solid ${colors.glassBorder || "rgba(0, 0, 0, 0.08)"}`,
-              borderRadius: "16px",
-              padding: "24px 16px",
+              boxShadow: colors.cardShadow || `0 8px 24px ${colors.glassBorder ? colors.glassBorder.replace(/[\d.]+\)$/g, '0.15)') : "rgba(0,0,0,0.05)"}`,
+              borderRadius: cardBorderRadius,
+              padding: "32px 20px 20px 20px",
               boxSizing: "border-box",
               minHeight: "220px",
-              marginTop: "20px",
+              marginTop: "25px",
             }}
           >
             {/* Overlapping Badge */}
@@ -405,28 +422,29 @@ const StepChain = ({ data, colors }: { data: any; colors: any }) => {
                 width: "50px",
                 height: "50px",
                 borderRadius: "50%",
-                backgroundColor: colors.accent,
+                ...(colors.accentBg ? { background: colors.accentBg } : { backgroundColor: colors.accent }),
                 color: colors.accent === "#ffffff" ? "#050505" : "#ffffff",
                 fontSize: "20px",
                 fontWeight: "bold",
                 border: `3px solid ${colors.accent === "#ffffff" ? "#050505" : (colors.background?.color || "#ffffff")}`,
+                boxSizing: "border-box",
               }}
             >
               {step.number || (idx + 1)}
             </div>
-            <span style={{ fontSize: "16px", fontWeight: "bold", textAlign: "center", color: colors.text, marginBottom: "8px", marginTop: "15px" }}>
+            <span style={{ fontSize: "16px", fontWeight: "bold", textAlign: "center", color: colors.text, marginBottom: "8px" }}>
               {step.label}
             </span>
             <span style={{ fontSize: "13px", textAlign: "center", color: colors.muted, lineHeight: "1.4" }}>
               {step.description}
             </span>
           </div>
-          {/* Connector Arrow between cards (not after last card) */}
+          {/* Connector Arrow perfectly aligned in the space between steps */}
           {idx < visibleSteps.length - 1 && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", flexShrink: 0, marginTop: "20px" }}>
+            <div style={{ position: "absolute", right: "-30px", top: "16px", display: "flex", alignItems: "center", justifyContent: "center", width: "28px", flexShrink: 0 }}>
               <svg width="28" height="18" viewBox="0 0 28 18" fill="none">
-                <line x1="0" y1="9" x2="20" y2="9" stroke={colors.accent} strokeWidth="2" strokeDasharray="3,2" opacity="0.7" />
-                <path d="M16 3 L24 9 L16 15" stroke={colors.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+                <line x1="0" y1="9" x2="20" y2="9" stroke={colors.accent} strokeWidth="2.5" strokeDasharray="3,2" opacity="0.8" />
+                <path d="M15 4 L22 9 L15 14" stroke={colors.accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="1" />
               </svg>
             </div>
           )}
@@ -453,12 +471,12 @@ const Venn = ({ data, colors }: { data: any; colors: any }) => {
   const smallTextSize = 12;
 
   return (
-    <div style={{ display: "flex", width: "100%", height: "360px", position: "relative", justifyContent: "center", alignItems: "center" }}>
-      <svg width="620" height="360" viewBox="0 0 620 360" fill="none" style={{ position: "absolute" }}>
+    <div style={{ display: "flex", width: "100%", justifyContent: "center", alignItems: "center" }}>
+      <svg width="620" height="360" viewBox="0 0 620 360" fill="none">
         {/* Left circle */}
-        <circle cx="215" cy="175" r="155" fill={colors.accent} fillOpacity="0.07" stroke={colors.accent} strokeWidth="2.5" opacity="0.9" />
+        <circle cx="215" cy="175" r="155" fill={colors.accent} fillOpacity="0.05" stroke={colors.accent} strokeWidth="3.5" opacity="0.85" />
         {/* Right circle */}
-        <circle cx="405" cy="175" r="155" fill={colors.accent} fillOpacity="0.07" stroke={colors.accent} strokeWidth="2.5" opacity="0.9" />
+        <circle cx="405" cy="175" r="155" fill={colors.accent} fillOpacity="0.05" stroke={colors.accent} strokeWidth="3.5" opacity="0.85" />
 
         {/* Overlap region — subtle accent fill to show intersection visually */}
         <ellipse cx="310" cy="175" rx="55" ry="120" fill={colors.accent} fillOpacity="0.18" />
@@ -523,23 +541,23 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
 
       {/* Central Core Card */}
       <div
-        style={{
-          position: "absolute",
-          left: `${cx - 58}px`,
-          top: `${cy - 58}px`,
-          width: "116px",
-          height: "116px",
-          borderRadius: "50%",
-          border: `4px solid ${colors.accent}`,
-          backgroundColor: colors.background?.color || (isDark ? "#050505" : "#ffffff"),
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "10px",
-          boxSizing: "border-box",
-        }}
-      >
-        <span style={{ fontSize: "13px", fontWeight: "bold", color: colors.text, textAlign: "center", lineHeight: "1.2" }}>{centerLabel}</span>
+            style={{
+              position: "absolute",
+              left: `${cx - 58}px`,
+              top: `${cy - 58}px`,
+              width: "116px",
+              height: "116px",
+              borderRadius: "50%",
+              border: `4px solid ${colors.accent}`,
+              ...(colors.accentBg ? { background: colors.accentBg } : { backgroundColor: colors.background?.color || (isDark ? "#050505" : "#ffffff") }),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "10px",
+              boxSizing: "border-box",
+            }}
+          >
+            <span style={{ fontSize: "13px", fontWeight: "bold", color: colors.accentBg ? "#ffffff" : colors.text, textAlign: "center", lineHeight: "1.2" }}>{centerLabel}</span>
       </div>
 
       {/* Dynamic spoke label cards — positioned at the spoke endpoint */}
@@ -561,7 +579,7 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: itemBg,
+              backgroundColor: colors.glassBg || itemBg,
               padding: spoke.description ? "8px 10px" : "7px 10px",
               borderRadius: "12px",
               border: `1.5px solid ${colors.glassBorder || "rgba(0,0,0,0.1)"}`,
@@ -599,25 +617,27 @@ const Concentric = ({ data, colors }: { data: any; colors: any }) => {
   // Each ring label is positioned on the right edge of its ring with a short tick connector
   // so the spatial depth order is immediately legible
   const ringConfigs = [
-    { r: radii[0], accentFill: true,  tickX2Offset: 30, labelX: cx + radii[0] + 38, labelY: cy - 6 },
-    { r: radii[1], accentFill: false, tickX2Offset: 30, labelX: cx + radii[1] + 38, labelY: cy - 22 },
-    { r: radii[2], accentFill: false, tickX2Offset: 30, labelX: cx + radii[2] + 38, labelY: cy - 36 },
+    { r: radii[0], accentFill: true,  labelX: cx + radii[0] + 38, labelY: cy - 6 },
+    { r: radii[1], accentFill: false, labelX: cx + radii[1] + 38, labelY: cy - 26 },
+    { r: radii[2], accentFill: false, labelX: cx + radii[2] + 38, labelY: cy - 46 },
   ];
 
   return (
     <div style={{ display: "flex", width: "620px", height: "360px", position: "relative", justifyContent: "center", alignItems: "center" }}>
       <svg width="620" height="360" viewBox="0 0 620 360" fill="none" style={{ position: "absolute", top: 0, left: 0 }}>
         {/* Ring circles */}
-        <circle cx={cx} cy={cy} r={radii[2]} fill={colors.accent} fillOpacity="0.04" stroke={colors.accent} strokeWidth="1.5" strokeDasharray="4,4" opacity="0.6" />
-        <circle cx={cx} cy={cy} r={radii[1]} fill={colors.accent} fillOpacity="0.08" stroke={colors.accent} strokeWidth="2.5" opacity="0.8" />
-        <circle cx={cx} cy={cy} r={radii[0]} fill={colors.accent} fillOpacity="0.18" stroke={colors.accent} strokeWidth="3.5" />
+        <circle cx={cx} cy={cy} r={radii[2]} fill={colors.accent} fillOpacity="0.05" stroke={colors.accent} strokeWidth="2" strokeDasharray="6,6" opacity="0.7" />
+        <circle cx={cx} cy={cy} r={radii[1]} fill={colors.accent} fillOpacity="0.1" stroke={colors.accent} strokeWidth="3" opacity="0.85" />
+        <circle cx={cx} cy={cy} r={radii[0]} fill={colors.accent} fillOpacity="0.22" stroke={colors.accent} strokeWidth="4" />
 
-        {/* Tick connectors — short horizontal line from ring edge to label */}
+        {/* Tick connectors — strictly horizontal lines from the circle edge at labelY to the label */}
         {sortedRings.slice(0, 3).map((_: any, i: number) => {
           const rc = ringConfigs[i];
-          const tickStartX = cx + rc.r;
+          const dy = rc.labelY - cy;
+          const dx = Math.sqrt(Math.max(0, rc.r * rc.r - dy * dy));
+          const tickStartX = cx + dx;
           return (
-            <line key={i} x1={tickStartX} y1={cy} x2={tickStartX + rc.tickX2Offset} y2={cy} stroke={colors.accent} strokeWidth="1.5" opacity="0.6" />
+            <line key={i} x1={tickStartX} y1={rc.labelY} x2={rc.labelX - 4} y2={rc.labelY} stroke={colors.accent} strokeWidth="1.5" opacity="0.6" />
           );
         })}
       </svg>
@@ -642,7 +662,7 @@ const Concentric = ({ data, colors }: { data: any; colors: any }) => {
                 fontSize: "12px",
                 fontWeight: "bold",
                 color: isInner ? "#ffffff" : colors.text,
-                backgroundColor: isInner ? colors.accent : labelBg,
+                ...(isInner && colors.accentBg ? { background: colors.accentBg } : { backgroundColor: isInner ? colors.accent : (colors.glassBg || labelBg) }),
                 border: `1.5px solid ${isInner ? colors.accent : (colors.glassBorder || "rgba(0,0,0,0.1)")}`,
                 padding: "5px 10px",
                 borderRadius: "12px",
@@ -669,6 +689,8 @@ const IconGrid = ({ data, colors }: { data: any; colors: any }) => {
   const tileMargin = is6Col ? "1% 1.5%" : "1.5% 2%";
   const iconSize = is6Col ? 42 : 52;
   const labelSize = is6Col ? "12px" : "14px";
+  const iconBorderRadius = colors?.iconBorderRadius || "50%";
+  const cardBorderRadius = colors?.cardBorderRadius || "18px";
   return (
     <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", width: "100%", padding: "10px 0" }}>
       {visibleItems.map((item: any, idx: number) => (
@@ -681,20 +703,21 @@ const IconGrid = ({ data, colors }: { data: any; colors: any }) => {
             justifyContent: "flex-start",
             width: tileWidth,
             margin: tileMargin,
-            padding: is6Col ? "14px 10px" : "20px 15px",
-            borderRadius: "18px",
+            borderRadius: cardBorderRadius,
             backgroundColor: colors.glassBg || "rgba(255, 255, 255, 0.4)",
             border: `1.5px solid ${colors.glassBorder || "rgba(0, 0, 0, 0.08)"}`,
+            boxShadow: colors.cardShadow || `0 8px 24px ${colors.glassBorder ? colors.glassBorder.replace(/[\d.]+\)$/g, '0.15)') : "rgba(0,0,0,0.05)"}`,
             boxSizing: "border-box",
-            minHeight: is6Col ? "110px" : "130px",
+            padding: "20px 10px",
+            minHeight: is6Col ? "130px" : "150px",
           }}
         >
           <div
             style={{
               width: `${iconSize}px`,
               height: `${iconSize}px`,
-              borderRadius: "50%",
-              backgroundColor: colors.accent,
+              borderRadius: iconBorderRadius,
+              ...(colors.accentBg ? { background: colors.accentBg } : { backgroundColor: colors.accent }),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -726,21 +749,23 @@ const IconGrid = ({ data, colors }: { data: any; colors: any }) => {
   );
 };
 
-// --- Quote Block (large stylized pull-quote) ---
+// --- QuoteBlock (large stylized pull-quote) ---
 const QuoteBlock = ({ data, colors }: { data: any; colors: any }) => {
   if (!data?.quote) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "30px 20px" }}>
-      <span style={{ fontSize: "80px", lineHeight: 1, color: colors.accent, opacity: 0.25, fontFamily: "Playfair Display, serif", marginBottom: "-10px", userSelect: "none" }}>"</span>
-      <p style={{ fontSize: "30px", fontFamily: "Playfair Display, serif", fontStyle: "italic", lineHeight: 1.45, color: colors.text, maxWidth: "800px", margin: "0" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "30px 20px", position: "relative" }}>
+      <div style={{ position: "absolute", top: "-60px", display: "flex", justifyContent: "center", width: "100%", zIndex: 0 }}>
+        <span style={{ fontSize: "200px", lineHeight: 1, color: colors.accent, opacity: 0.12, fontFamily: "Playfair Display, serif", userSelect: "none" }}>"</span>
+      </div>
+      <p style={{ position: "relative", zIndex: 1, fontSize: "32px", fontFamily: "Playfair Display, serif", fontStyle: "italic", lineHeight: 1.5, color: colors.text, maxWidth: "800px", margin: "0" }}>
         {data.quote}
       </p>
       {data.attribution && (
-        <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ width: "36px", height: "2px", backgroundColor: colors.accent, marginBottom: "10px", borderRadius: "1px" }} />
-          <span style={{ fontSize: "17px", fontWeight: 700, color: colors.accent }}>{data.attribution}</span>
+        <div style={{ position: "relative", zIndex: 1, marginTop: "36px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ width: "45px", height: "3px", backgroundColor: colors.accent, marginBottom: "16px", borderRadius: "2px" }} />
+          <span style={{ fontSize: "18px", fontWeight: 800, color: colors.accent, textTransform: "uppercase", letterSpacing: "1.5px" }}>{data.attribution}</span>
           {data.role && (
-            <span style={{ fontSize: "13px", color: colors.muted, marginTop: "3px" }}>{data.role}</span>
+            <span style={{ fontSize: "14px", color: colors.muted, marginTop: "6px", fontWeight: 600 }}>{data.role}</span>
           )}
         </div>
       )}
@@ -752,17 +777,17 @@ const QuoteBlock = ({ data, colors }: { data: any; colors: any }) => {
 const StatDisplay = ({ data, colors }: { data: any; colors: any }) => {
   if (!data?.number) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "20px" }}>
-      <span style={{ fontSize: "96px", fontWeight: 900, lineHeight: 1, color: colors.accent, letterSpacing: "-3px" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "30px" }}>
+      <span style={{ fontSize: "110px", fontWeight: 900, lineHeight: 1, color: colors.accent, letterSpacing: "-4px" }}>
         {data.number}
       </span>
       {data.label && (
-        <span style={{ fontSize: "22px", fontWeight: 600, color: colors.text, marginTop: "16px", maxWidth: "600px", lineHeight: 1.3 }}>
+        <span style={{ fontSize: "24px", fontWeight: 700, color: colors.text, marginTop: "20px", maxWidth: "600px", lineHeight: 1.3, letterSpacing: "-0.5px" }}>
           {data.label}
         </span>
       )}
       {data.context && (
-        <span style={{ fontSize: "15px", color: colors.muted, marginTop: "10px", maxWidth: "600px", lineHeight: 1.4 }}>
+        <span style={{ fontSize: "16px", color: colors.muted, marginTop: "12px", maxWidth: "600px", lineHeight: 1.5, fontWeight: 500 }}>
           {data.context}
         </span>
       )}
@@ -841,7 +866,7 @@ const TableBlock = ({ data, colors }: { data: any; colors: any }) => {
 const renderDiagram = (
   visualType: string,
   visualData: any,
-  colors: { text: string; accent: string; muted: string; glassBg?: string; glassBorder?: string; background?: any }
+  colors: { text: string; accent: string; muted: string; glassBg?: string; glassBorder?: string; background?: any; iconBorderRadius?: string; cardBorderRadius?: string; accentBg?: string }
 ) => {
   if (visualType === "step-chain") return <StepChain data={visualData} colors={colors} />;
   if (visualType === "venn") return <Venn data={visualData} colors={colors} />;
@@ -857,7 +882,7 @@ const renderDiagram = (
 const renderCodeBlock = (visualData: any, theme: "dark" | "light") => {
   if (!visualData?.code || !visualData?.tokens) return null;
   return (
-    <div style={{ display: "flex", width: "100%", justifyContent: "center", alignItems: "center", flexGrow: 1, minHeight: "360px" }}>
+    <div style={{ display: "flex", width: "100%", justifyContent: "center", alignItems: "center" }}>
       <CodeBlock
         language={visualData.language || "plaintext"}
         code={visualData.code}
@@ -981,7 +1006,7 @@ const renderFormattedText = (
 
 const ScribbleOverlay = ({ order, totalSlides, theme }: { order: number; totalSlides: number; theme: string }) => {
   const rng = getSeededRandom(`scribble-${order}`);
-  const color = theme === "cyber-horizon" ? "#ea580c" : theme === "linen-rust" ? "#c5563c" : theme === "warm-editorial" ? "#e05a47" : theme === "soft-gradient" ? "#7c3aed" : theme === "mesh-glow" ? "#ec4899" : "#ffffff";
+  const color = theme === "cyber-horizon" ? "#ea580c" : theme === "linen-rust" ? "#c5563c" : theme === "warm-editorial" ? "#e05a47" : theme === "soft-gradient" ? "#7c3aed" : theme === "mesh-glow" ? "#ec4899" : theme === "neo-brutalism" ? "#161616" : theme === "neomorphism" ? "#6D8CAE" : theme === "frosted-grid" ? "#FDE68A" : theme === "glassmorphism" ? "#38bdf8" : theme === "liquid-glass" ? "#0ea5e9" : "#ffffff";
 
   const elements: React.ReactElement[] = [];
 
@@ -1082,6 +1107,39 @@ const ProgressBar = ({ order, totalSlides, accentColor }: { order: number; total
 };
 
 // 2.8 — Text-only bullet hierarchy: first bullet rendered larger/bolder in accent, rest in muted
+const BulletDot = ({ color, size }: { color: string; size?: number }) => {
+  const s = size || 16;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="5" fill={color} />
+    </svg>
+  );
+};
+
+const BulletArrow = ({ color, size }: { color: string; size?: number }) => {
+  const s = size || 16;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      <polygon points="8,4 20,12 8,20" fill={color} />
+    </svg>
+  );
+};
+
+const BulletStar = ({ color, size }: { color: string; size?: number }) => {
+  const s = size || 16;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      <path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" fill={color} />
+    </svg>
+  );
+};
+
+const renderBulletIcon = (char: string, color: string, size?: number) => {
+  if (char === "▸") return <BulletArrow color={color} size={size} />;
+  if (char === "✦") return <BulletStar color={color} size={size} />;
+  return <BulletDot color={color} size={size} />;
+};
+
 const renderBulletList = (
   body: string,
   accentColor: string,
@@ -1090,15 +1148,23 @@ const renderBulletList = (
   bulletChar: string = "•",
   isDark: boolean = false,
   serifStyle?: React.CSSProperties,
-  codeStyle?: React.CSSProperties
+  codeStyle?: React.CSSProperties,
+  bulletColors?: string[]
 ) => {
+  if (!body) return null;
   const lines = body.split("\n").filter(Boolean).map(l => l.replace(/^[•\-\*\s]+/, "").trim()).filter(Boolean);
   return lines.map((line, idx) => {
     const isLead = idx === 0;
+    const colorIdx = bulletColors ? idx % bulletColors.length : 0;
+    const bulletColor = bulletColors ? bulletColors[colorIdx] : (isLead ? accentColor : mutedColor);
+    const lineTextColor = bulletColors ? textColor : (isLead ? textColor : mutedColor);
+    const lineWeight = bulletColors ? 500 : (isLead ? 700 : 400);
     return (
       <div key={idx} style={{ display: "flex", alignItems: "flex-start", marginBottom: isLead ? "18px" : "12px" }}>
-        <span style={{ marginRight: "12px", flexShrink: 0, color: isLead ? accentColor : mutedColor, fontSize: isLead ? "22px" : "18px", fontWeight: "bold", lineHeight: 1.4 }}>{bulletChar}</span>
-        <p style={{ fontSize: isLead ? "26px" : "21px", color: isLead ? textColor : mutedColor, lineHeight: 1.5, margin: 0, fontWeight: isLead ? 700 : 400 }}>
+        <span style={{ marginRight: "12px", flexShrink: 0, color: bulletColor, fontSize: isLead ? "22px" : "18px", fontWeight: "bold", lineHeight: 1.4 }}>
+          {renderBulletIcon(bulletChar, bulletColor, isLead ? 22 : 18)}
+        </span>
+        <p style={{ fontSize: isLead ? "26px" : "21px", color: lineTextColor, lineHeight: 1.5, margin: 0, fontWeight: lineWeight }}>
           {renderFormattedText(line, serifStyle || {}, {}, "flex-start", codeStyle)}
         </p>
       </div>
@@ -1133,7 +1199,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   } : {};
 
   // Setup the thread-local scribble variables
-  const scribbleColor = themeName === "cyber-horizon" ? "#ea580c" : themeName === "linen-rust" ? "#c5563c" : themeName === "warm-editorial" ? "#e05a47" : themeName === "soft-gradient" ? "#7c3aed" : themeName === "mesh-glow" ? "#ec4899" : "#ffffff";
+  const scribbleColor = themeName === "cyber-horizon" ? "#ea580c" : themeName === "linen-rust" ? "#c5563c" : themeName === "warm-editorial" ? "#e05a47" : themeName === "soft-gradient" ? "#7c3aed" : themeName === "mesh-glow" ? "#ec4899" : themeName === "neo-brutalism" ? "#161616" : themeName === "neomorphism" ? "#6D8CAE" : themeName === "frosted-grid" ? "#FDE68A" : themeName === "glassmorphism" ? "#38bdf8" : themeName === "liquid-glass" ? "#0ea5e9" : "#ffffff";
   currentScribbleState = scribble && type !== "COVER" && type !== "CLOSING" ? { scribble: true, color: scribbleColor } : null;
 
   try {
@@ -1141,13 +1207,18 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
     // THEME 1: MONOCHROME (Dark, stark, brutalist)
     // ==========================================
     if (themeName === "monochrome") {
+    const po = slide.paletteOverride;
+    const monoBg = po?.background || "#050505";
+    const monoText = po?.text || "#ffffff";
+    const monoAccent = po?.primary || "#ffffff";
+    const monoMuted = po?.text ? "#a3a3a3" : "#a3a3a3";
     return (
       <div
         style={{
           width: "1080px",
           height: "1350px",
-          backgroundColor: "#050505",
-          color: "#ffffff",
+          backgroundColor: monoBg,
+          color: monoText,
           fontFamily: "Outfit",
           display: "flex",
           flexDirection: "column",
@@ -1226,11 +1297,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                     if (codeBlock) return codeBlock;
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text: "#ffffff", accent: "#ffffff", muted: "#a3a3a3", glassBg: "rgba(255, 255, 255, 0.05)", glassBorder: "rgba(255, 255, 255, 0.1)" });
+                    const diagram = renderDiagram(visualType, visualData, { text: monoText, accent: monoAccent, muted: monoMuted, glassBg: "rgba(255, 255, 255, 0.05)", glassBorder: "rgba(255, 255, 255, 0.1)" });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "20px" }}>{diagram}</div>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", marginBottom: "20px" }}>{diagram}</div>
                           {body && (
                             <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
                               {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
@@ -1280,9 +1351,13 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   }
 
   // ==========================================
-  // THEME 2: SOFT GRADIENT (Aesthetic agency glassmorphism with seamless flow)
-  // ==========================================
-  if (themeName === "soft-gradient") {
+    // THEME 2: SOFT GRADIENT (Aesthetic agency glassmorphism with seamless flow)
+    // ==========================================
+    if (themeName === "soft-gradient") {
+    const po = slide.paletteOverride;
+    const sgText = po?.text || "#1e293b";
+    const sgAccent = po?.primary || "#7c3aed";
+    const sgMuted = po?.text || "#475569";
     return (
       <div
         style={{
@@ -1365,11 +1440,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                       if (codeBlock) return codeBlock;
                     }
                     if (visualType && visualType !== "text-only") {
-                      const diagram = renderDiagram(visualType, visualData, { text: "#1e293b", accent: "#7c3aed", muted: "#475569", glassBg: "rgba(124, 58, 237, 0.04)", glassBorder: "rgba(124, 58, 237, 0.08)" });
+                      const diagram = renderDiagram(visualType, visualData, { text: sgText, accent: sgAccent, muted: sgMuted, glassBg: "rgba(124, 58, 237, 0.04)", glassBorder: "rgba(124, 58, 237, 0.08)" });
                       if (diagram) {
                         return (
                           <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                            <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "20px" }}>{diagram}</div>
+                            <div style={{ display: "flex", width: "100%", justifyContent: "center", marginBottom: "20px" }}>{diagram}</div>
                             {body && (
                               <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
                                 {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
@@ -1420,9 +1495,14 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   }
 
   // ==========================================
-  // THEME 4: WARM EDITORIAL (cream-sand, terracotta accents, seamless connecting line)
-  // ==========================================
-  if (themeName === "warm-editorial") {
+    // THEME 4: WARM EDITORIAL (cream-sand, terracotta accents, seamless connecting line)
+    // ==========================================
+    if (themeName === "warm-editorial") {
+    const po = slide.paletteOverride;
+    const weText = po?.text || "#1e1b18";
+    const weAccent = po?.primary || "#e05a47";
+    const weMuted = po?.text ? "#6b6259" : "#6b6259";
+    const weBg = po?.background || "#f5f2eb";
     return (
       <div
         style={{
@@ -1501,11 +1581,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                     if (codeBlock) return codeBlock;
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text: "#1e1b18", accent: "#e05a47", muted: "#6b6259", glassBg: "rgba(224, 90, 71, 0.04)", glassBorder: "rgba(224, 90, 71, 0.08)" });
+                    const diagram = renderDiagram(visualType, visualData, { text: weText, accent: weAccent, muted: weMuted, glassBg: "rgba(224, 90, 71, 0.04)", glassBorder: "rgba(224, 90, 71, 0.08)" });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "20px" }}>{diagram}</div>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", marginBottom: "20px" }}>{diagram}</div>
                           {body && (
                             <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
                               {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
@@ -1554,9 +1634,13 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   }
 
   // ==========================================
-  // THEME 5: MESH GLOW (Clean gradient backgrounds with seamless flowing blobs, asterisk)
-  // ==========================================
-  if (themeName === "mesh-glow") {
+    // THEME 5: MESH GLOW (Clean gradient backgrounds with seamless flowing blobs, asterisk)
+    // ==========================================
+    if (themeName === "mesh-glow") {
+    const po = slide.paletteOverride;
+    const mgText = po?.text || "#0a0a0a";
+    const mgAccent = po?.primary || "#3b82f6";
+    const mgMuted = po?.text || "#374151";
     return (
       <div
         style={{
@@ -1642,11 +1726,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                     if (codeBlock) return codeBlock;
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text: "#0a0a0a", accent: "#3b82f6", muted: "#374151", glassBg: "rgba(10, 10, 10, 0.04)", glassBorder: "rgba(10, 10, 10, 0.08)" });
+                    const diagram = renderDiagram(visualType, visualData, { text: mgText, accent: mgAccent, muted: mgMuted, glassBg: "rgba(10, 10, 10, 0.04)", glassBorder: "rgba(10, 10, 10, 0.08)" });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "20px" }}>{diagram}</div>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", marginBottom: "20px" }}>{diagram}</div>
                           {body && (
                             <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
                               {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
@@ -1695,9 +1779,14 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   }
 
   // ==========================================
-  // THEME 6: CYBER HORIZON (Dark, neon-copper blueprint glow)
-  // ==========================================
-  if (themeName === "cyber-horizon") {
+    // THEME 6: CYBER HORIZON (Dark, neon-copper blueprint glow)
+    // ==========================================
+    if (themeName === "cyber-horizon") {
+    const po = slide.paletteOverride;
+    const chText = po?.text || "#ffffff";
+    const chAccent = po?.primary || "#ea580c";
+    const chMuted = po?.text ? "#a3a3a3" : "#a3a3a3";
+    const chBg = po?.background || "#050505";
     return (
       <div
         style={{
@@ -1771,7 +1860,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
           ) : type === "CLOSING" ? (
             // Cyber Horizon: scanline grid overlay on a dark CTA — grid + mono text
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%", position: "relative" }}>
-              <span style={{ fontSize: "12px", color: "rgba(234,88,12,0.7)", marginBottom: "22px", textTransform: "uppercase", letterSpacing: "6px", fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>// END TRANSMISSION</span>
+              <span style={{ fontSize: "12px", color: "rgba(234,88,12,0.7)", marginBottom: "22px", textTransform: "uppercase", letterSpacing: "6px", fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>{"// END TRANSMISSION"}</span>
               <h1 style={{ fontSize: "56px", fontWeight: 900, lineHeight: 1.15, marginBottom: "40px", letterSpacing: "-1px", color: "#ffffff", fontFamily: "JetBrains Mono, monospace" }}>
                 {renderFormattedText(title, { color: "#ea580c" }, {}, "center")}
               </h1>
@@ -1803,11 +1892,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                     if (codeBlock) return codeBlock;
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text: "#ffffff", accent: "#ea580c", muted: "#a3a3a3", glassBg: "rgba(255,255,255,0.05)", glassBorder: "rgba(255,255,255,0.1)" });
+                    const diagram = renderDiagram(visualType, visualData, { text: chText, accent: chAccent, muted: chMuted, glassBg: "rgba(255,255,255,0.05)", glassBorder: "rgba(255,255,255,0.1)" });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "20px" }}>{diagram}</div>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", marginBottom: "20px" }}>{diagram}</div>
                           {body && (
                             <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
                               {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
@@ -1861,9 +1950,14 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   }
 
   // ==========================================
-  // THEME 7: LINEN & RUST (Editorial, organic tactile)
-  // ==========================================
-  if (themeName === "linen-rust") {
+    // THEME 7: LINEN & RUST (Editorial, organic tactile)
+    // ==========================================
+    if (themeName === "linen-rust") {
+    const po = slide.paletteOverride;
+    const lrText = po?.text || "#2a2827";
+    const lrAccent = po?.primary || "#b84a30"; // Deepened rust
+    const lrMuted = po?.text ? "#5c5553" : "#5c5553";
+    const lrBg = po?.background || "#d8d7cf";
     return (
       <div
         style={{
@@ -1885,6 +1979,17 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         {/* Seamless Panoramic Background with subtle linen paths */}
         {!hasBgImage && <PanoramicBackground theme="linen-rust" order={order} totalSlides={totalSlides} />}
 
+        {/* SVG Texture Pattern Overlay */}
+        <svg width="1080" height="1350" style={{ position: "absolute", top: 0, left: 0, zIndex: 0, pointerEvents: "none" }}>
+          <defs>
+            <pattern id="linen-pattern" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+              <rect width="6" height="6" fill="none" />
+              <path d="M 0 0 L 2 2 M 4 0 L 6 2 M 0 4 L 2 6" stroke={lrAccent} strokeWidth="0.5" opacity="0.08" />
+            </pattern>
+          </defs>
+          <rect x="0" y="0" width="100%" height="100%" fill="url(#linen-pattern)" />
+        </svg>
+
         {/* Floating background diamond accents (randomized based on slide index/order) */}
         {!hasBgImage && (() => {
           const rng = getSeededRandom(`linen-stars-${order}`);
@@ -1899,7 +2004,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
             const d = `M${half} 0 L${size} ${half} L${half} ${size} L0 ${half} Z`;
             diamonds.push(
               <svg key={sIdx} style={{ position: "absolute", left: `${sx}px`, top: `${sy}px`, width: `${size}px`, height: `${size}px` }}>
-                <path d={d} fill="#c5563c" opacity={opacity} />
+                <path d={d} fill={lrAccent} opacity={opacity} />
               </svg>
             );
           }
@@ -1909,7 +2014,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         {/* Custom Diagram Shapes Overlay */}
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
         {/* 2.9 Progress bar */}
-        <ProgressBar order={order} totalSlides={totalSlides} accentColor="#c5563c" />
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor={lrAccent} />
 
         {/* Top Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
@@ -1922,33 +2027,33 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         {/* Content Box */}
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: "40px 0" }}>
           {type === "COVER" ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left" }}>
-              <h1 style={{ fontSize: "74px", fontWeight: 700, lineHeight: 1.15, marginBottom: "30px", letterSpacing: "-1px", color: "#2e2b2a" }}>
-                {renderFormattedText(title, { fontFamily: "Caveat", fontSize: "86px", color: "#c5563c", fontWeight: 400, fontStyle: "normal" })}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", position: "relative", zIndex: 1 }}>
+              <h1 style={{ fontSize: "74px", fontWeight: 700, lineHeight: 1.15, marginBottom: "30px", letterSpacing: "-1px", color: lrText }}>
+                {renderFormattedText(title, { fontFamily: "Caveat", fontSize: "86px", color: lrAccent, fontWeight: 400, fontStyle: "normal" })}
               </h1>
-              <div style={{ width: "80px", height: "4px", backgroundColor: "#c5563c", marginBottom: "40px" }} />
-              <p style={{ fontSize: "28px", color: "#5c5553", lineHeight: 1.5, maxWidth: "750px" }}>
-                {renderFormattedText(body, { fontFamily: "Caveat", fontSize: "36px", color: "#c5563c", fontWeight: 400, fontStyle: "normal" }, {}, "flex-start", lightCodeStyle)}
+              <div style={{ width: "80px", height: "4px", backgroundColor: lrAccent, marginBottom: "40px" }} />
+              <p style={{ fontSize: "28px", color: lrMuted, lineHeight: 1.5, maxWidth: "750px" }}>
+                {renderFormattedText(body, { fontFamily: "Caveat", fontSize: "36px", color: lrAccent, fontWeight: 400, fontStyle: "normal" }, {}, "flex-start", lightCodeStyle)}
               </p>
             </div>
           ) : type === "CLOSING" ? (
             // Linen & Rust: hand-written Caveat-font closer with warm texture rule
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%", position: "relative", zIndex: 1 }}>
               <span style={{ fontSize: "14px", color: "#9d8471", marginBottom: "20px", textTransform: "uppercase", letterSpacing: "5px", fontWeight: 700 }}>One Last Thing</span>
               <h1 style={{ fontSize: "58px", fontWeight: 700, lineHeight: 1.2, marginBottom: "36px", letterSpacing: "-0.5px", color: "#1c1612", fontFamily: "Playfair Display, serif" }}>
-                {renderFormattedText(title, { color: "#c5563c" }, {}, "center")}
+                {renderFormattedText(title, { color: lrAccent }, {}, "center")}
               </h1>
               {/* Linen rule */}
-              <div style={{ width: "100px", height: "2px", background: "linear-gradient(to right, transparent, #c5563c, transparent)", marginBottom: "32px" }} />
+              <div style={{ width: "100px", height: "2px", background: `linear-gradient(to right, transparent, ${lrAccent}, transparent)`, marginBottom: "32px" }} />
               {/* Caveat hand-written CTA pill */}
-              <div style={{ padding: "18px 50px", border: "2px solid #c5563c", borderRadius: "9999px", backgroundColor: "rgba(197,86,60,0.07)", display: "flex", alignItems: "center" }}>
-                <span style={{ fontSize: "26px", fontWeight: 700, color: "#c5563c", fontFamily: "Caveat, cursive" }}>{body || "Share with someone this helps"}</span>
+              <div style={{ padding: "18px 50px", border: `2.5px solid ${lrAccent}`, borderRadius: "9999px", backgroundColor: "rgba(184,74,48,0.07)", display: "flex", alignItems: "center", boxShadow: `4px 6px 0px rgba(184,74,48,0.2)` }}>
+                <span style={{ fontSize: "28px", fontWeight: 700, color: lrAccent, fontFamily: "Caveat, cursive" }}>{body || "Share with someone this helps"}</span>
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", textAlign: "left" }}>
-              <h2 style={{ fontSize: "52px", fontWeight: 700, lineHeight: 1.2, marginBottom: "30px", color: "#2e2b2a", letterSpacing: "-0.5px" }}>
-                {renderFormattedText(title, { fontFamily: "Caveat", fontSize: "62px", color: "#c5563c", fontWeight: 400, fontStyle: "normal" })}
+            <div style={{ display: "flex", flexDirection: "column", textAlign: "left", position: "relative", zIndex: 1 }}>
+              <h2 style={{ fontSize: "52px", fontWeight: 700, lineHeight: 1.2, marginBottom: "30px", color: lrText, letterSpacing: "-0.5px" }}>
+                {renderFormattedText(title, { fontFamily: "Caveat", fontSize: "62px", color: lrAccent, fontWeight: 400, fontStyle: "normal" })}
               </h2>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {(() => {
@@ -1957,11 +2062,11 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                     if (codeBlock) return codeBlock;
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text: "#2e2b2a", accent: "#c5563c", muted: "#5c5553", glassBg: "rgba(197, 86, 60, 0.03)", glassBorder: "rgba(197, 86, 60, 0.06)", background: { color: "#d8d7cf" } });
+                    const diagram = renderDiagram(visualType, visualData, { text: lrText, accent: lrAccent, muted: lrMuted, glassBg: "rgba(197, 86, 60, 0.03)", glassBorder: "rgba(197, 86, 60, 0.06)", background: { color: lrBg } });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "20px" }}>{diagram}</div>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", marginBottom: "20px" }}>{diagram}</div>
                           {body && (
                             <div style={{ display: "flex", flexDirection: "column" }}>
                               {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
@@ -1969,9 +2074,9 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                                 if (!cleanBullet) return null;
                                 return (
                                   <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "8px" }}>
-                                    <span style={{ marginRight: "10px", flexShrink: 0, color: "#c5563c", fontSize: "16px", fontWeight: 700, lineHeight: 1 }}>*</span>
-                                    <p style={{ fontSize: "20px", color: "#5c5553", lineHeight: 1.45, margin: 0 }}>
-                                      {renderFormattedText(cleanBullet, { fontFamily: "Caveat", fontSize: "24px", color: "#c5563c", fontWeight: 400, fontStyle: "normal" }, {}, "flex-start", lightCodeStyle)}
+                                    <span style={{ marginRight: "10px", flexShrink: 0, color: lrAccent, fontSize: "16px", fontWeight: 700, lineHeight: 1 }}>*</span>
+                                    <p style={{ fontSize: "20px", color: lrMuted, lineHeight: 1.45, margin: 0 }}>
+                                      {renderFormattedText(cleanBullet, { fontFamily: "Caveat", fontSize: "24px", color: lrAccent, fontWeight: 400, fontStyle: "normal" }, {}, "flex-start", lightCodeStyle)}
                                     </p>
                                   </div>
                                 );
@@ -2015,6 +2120,1040 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
           <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "1px", color: "rgba(46, 43, 42, 0.45)" }}>
             * swipe
           </span>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // THEME 8: NEO-BRUTALISM (Vibrant poster style — 5-color palette, rounded corners, colored shadows, color-blocked)
+  // ==========================================
+  if (themeName === "neo-brutalism") {
+    const po = slide.paletteOverride;
+    const cream = po?.background || "#F7F3EC";
+    const text = po?.text || "#141414";
+    const orange = po?.primary || "#F4623A";
+    const yellow = po?.secondary || "#FFD400";
+    const teal = po?.tertiary || "#2EC4B6";
+    const pop = po?.tertiary || "#FF3EA5";
+    const slideVariant = order % 2 === 0 ? "orange" : "teal";
+    const headerColor = slideVariant === "orange" ? orange : teal;
+    const pct = totalSlides > 1 ? Math.round(((order + 1) / totalSlides) * 100) : 100;
+    const shadowCream = `10px 10px 0px ${slideVariant === "orange" ? teal : yellow}`;
+    const shadowSolid = `10px 10px 0px ${text}`;
+
+    return (
+      <div
+        style={{
+          width: "1080px",
+          height: "1350px",
+          backgroundColor: type === "CLOSING" ? orange : cream,
+          color: text,
+          fontFamily: "Outfit",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          ...bgImageStyle,
+        }}
+      >
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+
+        {/* SVG Dot Grid Pattern Overlay */}
+        <svg width="1080" height="1350" style={{ position: "absolute", top: 0, left: 0, zIndex: 0, pointerEvents: "none" }}>
+          <defs>
+            <pattern id="dot-grid" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="2" fill={text} opacity="0.1" />
+            </pattern>
+          </defs>
+          <rect x="0" y="0" width="100%" height="100%" fill="url(#dot-grid)" />
+        </svg>
+
+        {type === "COVER" ? (
+          <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+            <div style={{ backgroundColor: headerColor, padding: "18px 60px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", fontWeight: 800, color: cream, letterSpacing: "3px", textTransform: "uppercase" }}>Introduction</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: cream }}>{pageLabel}</span>
+            </div>
+            <div style={{ display: "flex", height: "6px", backgroundColor: "rgba(0,0,0,0.1)" }}>
+              <div style={{ width: `${pct}%`, height: "6px", backgroundColor: yellow }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "60px" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", flexGrow: 1, justifyContent: "center", position: "relative" }}>
+              <div style={{ position: "absolute", top: "-10px", right: "40px", display: "flex" }}>
+                <StarAccent color={pop} size={36} />
+              </div>
+              <h1 style={{ fontSize: "86px", fontWeight: 900, lineHeight: 1.05, marginBottom: "40px", letterSpacing: "-3.5px", textTransform: "uppercase", position: "relative", zIndex: 1 }}>
+                {renderFormattedText(title, { color: orange, fontFamily: "Playfair Display", fontStyle: "italic" }, { color: text }, "flex-start")}
+              </h1>
+              {body && (
+                <div style={{ display: "flex", padding: "24px 32px", border: `3.5px solid ${text}`, borderRadius: "20px", boxShadow: shadowCream, backgroundColor: cream, maxWidth: "85%", position: "relative", zIndex: 1 }}>
+                  <p style={{ fontSize: "22px", color: text, lineHeight: 1.5, fontWeight: 600, margin: 0 }}>
+                    {renderFormattedText(body, {}, {}, "flex-start")}
+                  </p>
+                </div>
+              )}
+              <div style={{ marginTop: "50px", display: "flex", alignItems: "center", gap: "16px" }}>
+                <span style={{ padding: "6px 18px", border: `3px solid ${text}`, borderRadius: "9999px", fontSize: "13px", fontWeight: 800, color: text, textTransform: "uppercase" }}>
+                  {displayUsername || "Featured"}
+                </span>
+                <div style={{ width: "80px", height: "3px", backgroundColor: orange }} />
+              </div>
+              </div>
+            </div>
+          </div>
+        ) : type === "CLOSING" ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, padding: "60px", position: "relative" }}>
+            <div style={{ position: "absolute", top: "-10px", right: "40px", display: "flex" }}>
+              <StarAccent color={pop} size={36} />
+            </div>
+            <h1 style={{ fontSize: "76px", fontWeight: 900, lineHeight: 1.1, marginBottom: "40px", letterSpacing: "-3px", textTransform: "uppercase", textAlign: "center", maxWidth: "850px", position: "relative", zIndex: 1 }}>
+              {renderFormattedText(title, { color: yellow, fontFamily: "Playfair Display", fontStyle: "italic" }, { color: cream }, "center")}
+            </h1>
+            {body && (
+              <p style={{ fontSize: "24px", color: cream, lineHeight: 1.5, fontWeight: 500, textAlign: "center", maxWidth: "650px", marginBottom: "50px" }}>
+                {renderFormattedText(body, {}, {}, "center")}
+              </p>
+            )}
+            <div style={{ display: "flex", padding: "22px 60px", backgroundColor: yellow, border: `3.5px solid ${text}`, borderRadius: "9999px", boxShadow: shadowSolid, position: "relative", zIndex: 1 }}>
+              <span style={{ fontSize: "24px", fontWeight: 900, color: text, letterSpacing: "1px" }}>{displayUsername || "Get Started"}</span>
+            </div>
+            <div style={{ position: "absolute", bottom: "60px", right: "60px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: cream, textTransform: "uppercase", letterSpacing: "2px" }}>{pageLabel}</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+            <div style={{ backgroundColor: headerColor, padding: "18px 60px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", fontWeight: 800, color: cream, letterSpacing: "3px", textTransform: "uppercase" }}>
+                Insight
+              </span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: cream }}>{pageLabel}</span>
+            </div>
+            <div style={{ display: "flex", height: "6px", backgroundColor: "rgba(0,0,0,0.1)" }}>
+              <div style={{ width: `${pct}%`, height: "6px", backgroundColor: yellow }} />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "30px 60px 20px 60px", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+              <div style={{ display: "flex", marginBottom: "8px" }}>
+                <StarAccent color={pop} size={20} />
+              </div>
+
+              <h2 style={{ fontSize: "46px", fontWeight: 900, lineHeight: 1.15, marginBottom: "20px", letterSpacing: "-2px", textTransform: "uppercase", position: "relative", zIndex: 1 }}>
+                {renderFormattedText(title, { color: orange, fontFamily: "Playfair Display", fontStyle: "italic" }, {}, "center")}
+              </h2>
+
+              <div style={{ display: "flex", flexDirection: "column", width: "100%", alignItems: "center" }}>
+                {(() => {
+                  if (visualType === "code-block") {
+                    return (
+                      <div style={{ border: `3px solid ${text}`, borderRadius: "20px", boxShadow: shadowCream, display: "flex", overflow: "hidden", backgroundColor: cream, width: "100%", maxWidth: "800px" }}>
+                        {renderCodeBlock(visualData, "dark")}
+                      </div>
+                    );
+                  }
+                  if (visualType && visualType !== "text-only") {
+                    const diagram = renderDiagram(visualType, visualData, { text, accent: orange, muted: text, iconBorderRadius: "50%", cardBorderRadius: "20px", glassBg: orange, glassBorder: text });
+                    if (diagram) {
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+                          <div style={{ display: "flex", width: "100%", maxWidth: "800px", justifyContent: "center", alignItems: "center", border: `3px solid ${text}`, borderRadius: "20px", boxShadow: shadowCream, padding: "24px", boxSizing: "border-box", backgroundColor: cream }}>{diagram}</div>
+                          {body && (
+                            <div style={{ display: "flex", flexDirection: "column", padding: "20px 0 0 0", alignItems: "center", textAlign: "center", width: "100%", maxWidth: "700px" }}>
+                              {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                                const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                                if (!cleanBullet) return null;
+                                return (
+                                  <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "8px" }}>
+                                    <span style={{ marginRight: "12px", flexShrink: 0, color: orange, fontSize: "16px", fontWeight: "bold", display: "flex", alignItems: "center", marginTop: "4px" }}>
+                                      {renderBulletIcon("▸", orange, 16)}
+                                    </span>
+                                    <p style={{ fontSize: "18px", color: text, lineHeight: 1.45, margin: 0, fontWeight: 500, textAlign: "left" }}>
+                                      {renderFormattedText(cleanBullet, {}, {}, "flex-start")}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  }
+                    return (
+                    <div style={{ display: "flex", flexDirection: "column", border: `3px solid ${text}`, borderRadius: "20px", boxShadow: shadowCream, padding: "24px", backgroundColor: cream, width: "100%", maxWidth: "800px", textAlign: "left" }}>
+                      {renderBulletList(body, orange, text, text, "▸", true, {}, {}, [orange, yellow, teal, pop])}
+                    </div>
+                  );
+                })()}
+                {imageUrl && imageLayout === "inline" && (
+                  <div style={{ display: "flex", border: `3px solid ${text}`, borderRadius: "20px", boxShadow: shadowCream, marginTop: "24px", overflow: "hidden", backgroundColor: cream, width: "100%", maxWidth: "800px" }}>
+                    <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: teal, padding: "14px 60px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "14px", fontWeight: 800, color: cream }}>{displayUsername}</span>
+              </div>
+              {!isLast && (
+                <div style={{ display: "flex", alignItems: "center", color: cream, fontSize: "13px", fontWeight: 700 }}>
+                  <span style={{ textTransform: "uppercase", letterSpacing: "2px" }}>Swipe</span>
+                  <SwipeArrow color={cream} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ==========================================
+  // THEME 9: NEOMORPHISM (Soft extruded surfaces, dual shadows)
+  // ==========================================
+  if (themeName === "neomorphism") {
+    const po = slide.paletteOverride;
+    const bg = po?.background || "#E4E0DA";
+    const text = po?.text || "#2B2B2B";
+    const mutedText = po?.text ? "#5a5a5a" : "#5a5a5a";
+    const accent = po?.primary || "#E8503A";
+    const accentBg = "radial-gradient(circle at 35% 30%, #F4A896 0%, #E8503A 60%, #C43D2A 100%)";
+    const lightShadow = "-12px -12px 24px rgba(255,255,255,0.7)";
+    const darkShadow = "12px 12px 24px rgba(0,0,0,0.12)";
+    const raisedShadow = "-16px -16px 32px rgba(255,255,255,0.8), 16px 16px 32px rgba(0,0,0,0.14)";
+    const insetShadow = "inset -8px -8px 16px rgba(255,255,255,0.6), inset 8px 8px 16px rgba(0,0,0,0.1)";
+const extrudedCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
+  <div style={{ display: "flex", borderRadius: "20px", padding: 0, boxShadow: darkShadow, ...extraStyle }}>
+    <div style={{ display: "flex", flex: 1, backgroundColor: bg, borderRadius: "20px", padding: "24px", boxShadow: lightShadow, boxSizing: "border-box" }}>
+      {content}
+    </div>
+  </div>
+);
+const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
+  <div style={{ display: "flex", backgroundColor: bg, borderRadius: "20px", padding: "24px", boxShadow: "inset -8px -8px 16px rgba(255,255,255,0.6)", ...extraStyle }}>
+    <div style={{ display: "flex", flex: 1, borderRadius: "20px", boxShadow: "inset 8px 8px 16px rgba(0,0,0,0.1)", boxSizing: "border-box" }}>
+      {content}
+    </div>
+  </div>
+);
+    return (
+      <div
+        style={{
+          width: "1080px",
+          height: "1350px",
+          backgroundColor: bg,
+          background: `radial-gradient(circle at top left, rgba(255,255,255,0.4) 0%, ${bg} 60%, rgba(0,0,0,0.05) 100%)`,
+          color: text,
+          fontFamily: "Outfit",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          padding: "85px",
+          boxSizing: "border-box",
+          position: "relative",
+          ...bgImageStyle,
+        }}
+      >
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor={accent} />
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+              <div style={{ display: "flex", padding: "6px 18px", backgroundColor: bg, borderRadius: "9999px", boxShadow: `${lightShadow}, ${darkShadow}` }}>
+                <span style={{ fontSize: "12px", fontWeight: 800, color: text, letterSpacing: "3px", textTransform: "uppercase" }}>
+                  {type === "COVER" ? "Introduction" : type === "CLOSING" ? "Conclusion" : "Insight"}
+                </span>
+              </div>
+              <div style={{ display: "flex", padding: "4px 14px", backgroundColor: bg, borderRadius: "9999px", boxShadow: `${lightShadow}, ${darkShadow}` }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: mutedText }}>{pageLabel}</span>
+              </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: "35px 0" }}>
+          {type === "COVER" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <h1 style={{ fontSize: "64px", fontWeight: 600, lineHeight: 1.15, marginBottom: "40px", letterSpacing: "-1px" }}>
+                {renderFormattedText(title, { color: accent }, { color: text }, "center")}
+              </h1>
+              {body && extrudedCard(
+                <p style={{ fontSize: "22px", color: mutedText, lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
+                  {renderFormattedText(body, {}, {}, "center")}
+                </p>, { padding: 0 }
+              )}
+              <div style={{ marginTop: "50px", width: "180px", height: "180px", borderRadius: "50%", background: accentBg, boxShadow: "16px 16px 32px rgba(0,0,0,0.14)" }}>
+                <div style={{ width: "100%", height: "100%", borderRadius: "50%", boxShadow: "-16px -16px 32px rgba(255,255,255,0.8)" }} />
+              </div>
+            </div>
+          ) : type === "CLOSING" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <span style={{ fontSize: "12px", color: mutedText, marginBottom: "20px", textTransform: "uppercase", letterSpacing: "5px", fontWeight: 700 }}>Next Steps</span>
+              <h1 style={{ fontSize: "52px", fontWeight: 600, lineHeight: 1.2, marginBottom: "35px", letterSpacing: "-1px" }}>
+                {renderFormattedText(title, { color: accent }, { color: text }, "center")}
+              </h1>
+            <div style={{ display: "flex", padding: "18px 48px", backgroundColor: accent, borderRadius: "9999px", boxShadow: "16px 16px 32px rgba(0,0,0,0.14)" }}>
+              <div style={{ display: "flex", width: "100%", height: "100%", borderRadius: "9999px", boxShadow: "-16px -16px 32px rgba(255,255,255,0.8)" }}>
+                <span style={{ fontSize: "22px", fontWeight: 900, color: "#ffffff", letterSpacing: "1px" }}>{body || displayUsername || "Get Started"}</span>
+              </div>
+            </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <h2 style={{ fontSize: "44px", fontWeight: 600, lineHeight: 1.25, marginBottom: "25px", letterSpacing: "-0.5px", color: text }}>
+                {renderFormattedText(title, { color: accent })}
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {(() => {
+                  if (visualType === "code-block") {
+                    return insetCard(renderCodeBlock(visualData, "light"), { padding: "8px", marginBottom: "20px" });
+                  }
+                  if (visualType && visualType !== "text-only") {
+                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, accentBg });
+                    if (diagram) {
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                          {insetCard(
+                            <div style={{ display: "flex", width: "100%", justifyContent: "center" }}>{diagram}</div>,
+                            { marginBottom: "20px" }
+                          )}
+                          {body && (
+                            <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
+                              {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                                const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                                if (!cleanBullet) return null;
+                                return (
+                                  <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "8px" }}>
+                                    <span style={{ marginRight: "10px", flexShrink: 0, color: accent, fontSize: "16px", fontWeight: "bold" }}>•</span>
+                                    <p style={{ fontSize: "18px", color: mutedText, lineHeight: 1.45, margin: 0 }}>
+                                      {renderFormattedText(cleanBullet, {}, {}, "flex-start")}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  }
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, accent, text, mutedText, "•", false, {}, {})}</div>;
+                })()}
+                {imageUrl && imageLayout === "inline" && (
+                  <div style={{ display: "flex", marginTop: "20px", borderRadius: "20px", overflow: "hidden", boxShadow: insetShadow }}>
+                    <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+          <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: bg, boxShadow: `${lightShadow}, ${darkShadow}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: accent }}>{username ? username.replace("@", "").substring(0, 2).toUpperCase() : "CA"}</span>
+          </div>
+          {!isLast && (
+            <div style={{ display: "flex", alignItems: "center", color: mutedText, fontSize: "14px", fontWeight: 600 }}>
+              <span style={{ textTransform: "uppercase", letterSpacing: "1px" }}>Swipe</span>
+              <SwipeArrow color={mutedText} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // THEME 10: FROSTED GRID (Minimal white, accent shape, small frosted grid)
+  // ==========================================
+  if (themeName === "frosted-grid") {
+    const po = slide.paletteOverride;
+    const text = po?.text || "#1a1a1a";
+    const mutedText = po?.text ? "rgba(26,26,26,0.6)" : "#737373";
+    const accent = po?.primary || "#a855f7"; // Purple accent
+    
+    const glassFill = "rgba(255,255,255,0.6)";
+    const glassBorder = "rgba(0,0,0,0.03)";
+    const glassBorderTop = "rgba(255,255,255,0.9)";
+
+    // Define the top edge of the frosted blocks (y-index for each of the 10 columns)
+    const blockHeights = [6, 5, 5, 6, 7, 8, 8, 7, 7, 6];
+
+    return (
+      <div
+        style={{
+          width: "1080px",
+          height: "1350px",
+          backgroundColor: "#F8F9FA",
+          color: text,
+          fontFamily: "Outfit",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+          position: "relative",
+          overflow: "hidden",
+          ...bgImageStyle,
+        }}
+      >
+        {/* Thin vertical lines */}
+        <svg width="1080" height="1350" style={{ position: "absolute", top: 0, left: 0, zIndex: 0, pointerEvents: "none" }}>
+          {Array.from({ length: 11 }).map((_, i) => (
+            <line key={i} x1={i * 108} y1={0} x2={i * 108} y2={1350} stroke="rgba(0,0,0,0.03)" strokeWidth="1.5" />
+          ))}
+          <defs>
+            <radialGradient id="purple-blob" cx="50%" cy="80%" r="65%">
+              <stop offset="0%" stopColor={accent} stopOpacity="0.8" />
+              <stop offset="100%" stopColor={accent} stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <rect width="1080" height="1350" fill="url(#purple-blob)" />
+        </svg>
+        
+        {/* Frosted blocks grid */}
+        <div style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", display: "flex", zIndex: 1 }}>
+          {Array.from({ length: 130 }).map((_, i) => {
+            const row = Math.floor(i / 10);
+            const col = i % 10;
+            const startRow = blockHeights[col];
+            
+            if (row >= startRow) {
+              const isEdge = row === startRow;
+              // Deterministic random opacity based on position
+              const random = ((row * 13) + (col * 7)) % 10;
+              const opacity = isEdge ? 0.6 : (0.15 + random * 0.05);
+              return (
+                <div key={i} style={{
+                  width: "108px",
+                  height: "108px",
+                  backgroundColor: `rgba(255, 255, 255, ${opacity})`,
+                  borderTop: "1.5px solid rgba(255, 255, 255, 0.9)",
+                  borderLeft: "1.5px solid rgba(255, 255, 255, 0.9)",
+                  borderRight: "1px solid rgba(0, 0, 0, 0.03)",
+                  borderBottom: "1px solid rgba(0, 0, 0, 0.03)",
+                  boxShadow: "inset 4px 4px 12px rgba(255, 255, 255, 0.6), 6px 6px 15px rgba(0, 0, 0, 0.05)",
+                  borderRadius: "20px",
+                  position: "absolute",
+                  left: `${col * 108}px`,
+                  top: `${row * 108}px`,
+                  boxSizing: "border-box"
+                }} />
+              );
+            }
+            return null;
+          })}
+        </div>
+        
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", zIndex: 10, padding: "80px", justifyContent: "space-between" }}>
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor={accent} />
+
+        {type === "COVER" ? null : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 18px", backgroundColor: glassFill, border: `1px solid ${glassBorder}`, borderTop: `1px solid ${glassBorderTop}`, borderLeft: `1px solid ${glassBorderTop}`, borderRadius: "9999px", width: "fit-content", boxShadow: "0 10px 20px rgba(0,0,0,0.05)" }}>
+            <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "2px", color: accent, textTransform: "uppercase" }}>
+              {type === "CLOSING" ? "Conclusion" : "Insight"}
+            </span>
+            <span style={{ fontSize: "13px", color: text, fontWeight: 700, marginLeft: "10px" }}>{pageLabel}</span>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", flexGrow: 1, margin: type === "COVER" ? "0" : "30px 0" }}>
+          {type === "COVER" ? (
+            <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-between" }}>
+              {/* Top Text Section */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", maxWidth: "900px", marginTop: "20px" }}>
+                <span style={{ fontSize: "18px", fontWeight: 800, color: "rgba(0,0,0,0.3)", textTransform: "uppercase", marginBottom: "20px", letterSpacing: "1px" }}>{pageLabel || "Design Resources"}</span>
+                <div style={{ display: "flex", position: "relative" }}>
+                  <h1 style={{ fontSize: "120px", fontWeight: 900, lineHeight: 1.05, color: text, letterSpacing: "-4px", margin: 0, position: "relative" }}>
+                    {renderFormattedText(title, { color: accent }, { color: text }, "flex-start")}
+                  </h1>
+                  <svg width="50" height="50" viewBox="0 0 60 60" style={{ position: "absolute", right: "-50px", top: "-10px" }}>
+                    <path d="M30 0 C30 20 40 30 60 30 C40 30 30 40 30 60 C30 40 20 30 0 30 C20 30 30 20 30 0" fill={text} opacity="0.6" />
+                  </svg>
+                  <svg width="30" height="30" viewBox="0 0 60 60" style={{ position: "absolute", right: "-80px", top: "10px" }}>
+                    <path d="M30 0 C30 20 40 30 60 30 C40 30 30 40 30 60 C30 40 20 30 0 30 C20 30 30 20 30 0" fill={text} opacity="0.4" />
+                  </svg>
+                </div>
+              </div>
+              
+              {/* Bottom Body Section (Inside the purple/glass area) */}
+              {body && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", marginTop: "auto", marginBottom: "40px" }}>
+                  <p style={{ fontSize: "32px", color: "#ffffff", lineHeight: 1.3, maxWidth: "700px", fontWeight: 600, textShadow: "0 2px 10px rgba(0,0,0,0.1)" }}>
+                    {renderFormattedText(body, {}, {}, "flex-start")}
+                  </p>
+                  <div style={{ display: "flex", alignItems: "center", padding: "10px 24px", backgroundColor: "rgba(255,255,255,0.2)", border: "1.5px solid rgba(255,255,255,0.5)", borderRadius: "9999px", marginTop: "24px" }}>
+                    <span style={{ fontSize: "16px", fontWeight: 700, color: "#ffffff" }}>{displayUsername || "By Author"}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : type === "CLOSING" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", justifyContent: "center", flexGrow: 1 }}>
+              <svg width="60" height="60" viewBox="0 0 60 60" style={{ marginBottom: "30px" }}>
+                <path d="M30 0 C30 20 40 30 60 30 C40 30 30 40 30 60 C30 40 20 30 0 30 C20 30 30 20 30 0" fill={text} opacity="0.6" />
+              </svg>
+              <h1 style={{ fontSize: "80px", fontWeight: 900, lineHeight: 1.1, marginBottom: "35px", letterSpacing: "-2px" }}>
+                {renderFormattedText(title, { color: accent }, { color: text }, "center")}
+              </h1>
+              <p style={{ fontSize: "28px", color: mutedText, lineHeight: 1.5, marginBottom: "50px", maxWidth: "700px", fontWeight: 500 }}>
+                {renderFormattedText(body, {}, {}, "center")}
+              </p>
+            <div style={{ display: "flex", padding: "20px 54px", backgroundColor: text, borderRadius: "9999px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)" }}>
+              <span style={{ fontSize: "24px", fontWeight: 900, color: "#FFFFFF", letterSpacing: "1px" }}>{displayUsername || "Join Now"}</span>
+            </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", padding: "40px", backgroundColor: glassFill, border: `1.5px solid ${glassBorder}`, borderTop: `1.5px solid ${glassBorderTop}`, borderLeft: `1.5px solid ${glassBorderTop}`, borderRadius: "24px", boxShadow: "0 20px 40px rgba(0,0,0,0.05)", marginTop: "20px" }}>
+              <h2 style={{ fontSize: "42px", fontWeight: 800, lineHeight: 1.25, marginBottom: "24px", letterSpacing: "-1px", color: text }}>
+                {renderFormattedText(title, { color: accent })}
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {(() => {
+                  if (visualType === "code-block") {
+                    return (
+                  <div style={{ display: "flex", backgroundColor: "#0F172A", borderRadius: "16px", overflow: "hidden", marginBottom: "16px" }}>
+                    {renderCodeBlock(visualData, "dark")}
+                  </div>
+                    );
+                  }
+                  if (visualType && visualType !== "text-only") {
+                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: glassFill, glassBorder });
+                    if (diagram) {
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "16px" }}>{diagram}</div>
+                          {body && (
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                                const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                                if (!cleanBullet) return null;
+                                return (
+                                  <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "12px" }}>
+                                    <span style={{ marginRight: "12px", flexShrink: 0, color: accent, fontSize: "16px", fontWeight: "bold", display: "flex", alignItems: "center" }}>
+                                      {renderBulletIcon("▪", accent, 16)}
+                                    </span>
+                                    <p style={{ fontSize: "18px", color: mutedText, lineHeight: 1.5, margin: 0 }}>
+                                      {renderFormattedText(cleanBullet, {}, {}, "flex-start")}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  }
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, accent, text, mutedText, "▪", false, {}, {})}</div>;
+                })()}
+                {imageUrl && imageLayout === "inline" && (
+                  <div style={{ display: "flex", marginTop: "16px", borderRadius: "16px", overflow: "hidden", border: `1px solid ${glassBorder}` }}>
+                    <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+              <div style={{ display: "flex", padding: "8px 20px", backgroundColor: "#F8FAFC", border: `1px solid #E2E8F0`, borderRadius: "9999px" }}>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: text }}>{displayUsername}</span>
+              </div>
+          {!isLast && (
+            <div style={{ display: "flex", alignItems: "center", color: accent, fontSize: "14px", fontWeight: 700 }}>
+              <span style={{ textTransform: "uppercase", letterSpacing: "1px" }}>Swipe</span>
+              <SwipeArrow color={accent} />
+            </div>
+          )}
+        </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // THEME 11: GLASSMORPHISM (Premium thin glass on lush mesh orbs)
+  // ==========================================
+  if (themeName === "glassmorphism") {
+    const po = slide.paletteOverride;
+    const glassFill = "rgba(255,255,255,0.55)";
+    const glassBorder = "rgba(255,255,255,0.4)";
+    const glassBorderTop = "rgba(255,255,255,0.9)";
+    const lightShadow = "0 24px 48px rgba(15,23,42,0.04), inset 0 0 0 1px rgba(255,255,255,0.3)";
+    const text = po?.text || "#1e293b";
+    const mutedText = "rgba(30,41,59,0.6)";
+    const accent = po?.primary || "#0f172a";
+    
+    // Soft, airy background
+    const bgGradients = (
+      <div style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", zIndex: 0, display: "flex", background: "linear-gradient(135deg, #e2e8f0 0%, #f8fafc 100%)" }}>
+        {/* Subtle highlights */}
+        <div style={{ position: "absolute", top: "-20%", left: "-10%", width: "80%", height: "80%", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 60%)" }} />
+        <div style={{ position: "absolute", bottom: "-20%", right: "-10%", width: "80%", height: "80%", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.6) 0%, transparent 60%)" }} />
+      </div>
+    );
+
+    return (
+      <div
+        style={{
+          width: "1080px",
+          height: "1350px",
+          backgroundColor: "#e2e8f0",
+          color: text,
+          fontFamily: "Outfit",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+          position: "relative",
+          overflow: "hidden",
+          ...bgImageStyle,
+        }}
+      >
+        {!hasBgImage && bgGradients}
+        
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", zIndex: 10, padding: "90px", justifyContent: "space-between" }}>
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor={accent} />
+
+        {type === "COVER" ? null : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", backgroundColor: glassFill, border: `1px solid ${glassBorder}`, borderTop: `1.5px solid ${glassBorderTop}`, borderLeft: `1.5px solid ${glassBorderTop}`, borderRadius: "16px", boxShadow: lightShadow }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={mutedText} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "12px" }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: mutedText }}>
+                {type === "CLOSING" ? "Conclusion" : "Insight"}
+              </span>
+            </div>
+            <span style={{ fontSize: "14px", color: text, fontWeight: 700 }}>{pageLabel}</span>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: type === "COVER" ? "0" : "30px 0" }}>
+          {type === "COVER" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", flexGrow: 1, justifyContent: "center" }}>
+              <h1 style={{ fontSize: "72px", fontWeight: 800, lineHeight: 1.1, marginBottom: "30px", letterSpacing: "-1.5px" }}>
+                {renderFormattedText(title, { color: accent }, { color: text }, "center")}
+              </h1>
+              {body && (
+                <p style={{ fontSize: "24px", color: mutedText, lineHeight: 1.5, maxWidth: "800px", fontWeight: 500 }}>
+                  {renderFormattedText(body, {}, {}, "center")}
+                </p>
+              )}
+            </div>
+          ) : type === "CLOSING" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", backgroundColor: glassFill, padding: "80px", borderRadius: "32px", border: `1px solid ${glassBorder}`, borderTop: `1.5px solid ${glassBorderTop}`, borderLeft: `1.5px solid ${glassBorderTop}`, boxShadow: lightShadow }}>
+              <h1 style={{ fontSize: "64px", fontWeight: 800, lineHeight: 1.2, marginBottom: "35px", letterSpacing: "-1px" }}>
+                {renderFormattedText(title, { color: accent }, { color: text }, "center")}
+              </h1>
+              <p style={{ fontSize: "24px", color: mutedText, lineHeight: 1.5, marginBottom: "50px", maxWidth: "700px", fontWeight: 500 }}>
+                {renderFormattedText(body, {}, {}, "center")}
+              </p>
+            <div style={{ display: "flex", padding: "18px 48px", backgroundColor: accent, borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)" }}>
+              <span style={{ fontSize: "22px", fontWeight: 800, color: "#ffffff", letterSpacing: "1px" }}>{displayUsername || "Join Now"}</span>
+            </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", padding: "48px", backgroundColor: glassFill, border: `1px solid ${glassBorder}`, borderTop: `1.5px solid ${glassBorderTop}`, borderLeft: `1.5px solid ${glassBorderTop}`, borderRadius: "32px", boxShadow: lightShadow }}>
+              <h2 style={{ fontSize: "42px", fontWeight: 800, lineHeight: 1.25, marginBottom: "20px", letterSpacing: "-0.5px" }}>
+                {renderFormattedText(title, { color: accent })}
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {(() => {
+                  if (visualType === "code-block") {
+                    return (
+                  <div style={{ display: "flex", backgroundColor: "rgba(0,0,0,0.5)", borderRadius: "16px", overflow: "hidden", marginBottom: "16px", border: `1px solid ${glassBorder}` }}>
+                    {renderCodeBlock(visualData, "dark")}
+                  </div>
+                    );
+                  }
+                  if (visualType && visualType !== "text-only") {
+                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: glassFill, glassBorder: glassBorderTop });
+                    if (diagram) {
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "16px" }}>{diagram}</div>
+                          {body && (
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                                const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                                if (!cleanBullet) return null;
+                                return (
+                                  <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "8px" }}>
+                                    <span style={{ marginRight: "10px", flexShrink: 0, color: accent, fontSize: "16px", fontWeight: "bold", display: "flex", alignItems: "center" }}>
+                                      {renderBulletIcon("✦", accent, 16)}
+                                    </span>
+                                    <p style={{ fontSize: "17px", color: mutedText, lineHeight: 1.45, margin: 0 }}>
+                                      {renderFormattedText(cleanBullet, {}, {}, "flex-start")}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  }
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, accent, text, mutedText, "✦", false, {}, {})}</div>;
+                })()}
+                {imageUrl && imageLayout === "inline" && (
+                  <div style={{ display: "flex", marginTop: "16px", borderRadius: "20px", overflow: "hidden", border: `1px solid ${glassBorderTop}` }}>
+                    <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+              <div style={{ display: "flex", padding: "8px 20px", backgroundColor: glassFill, border: `1px solid ${glassBorder}`, borderTop: `1px solid ${glassBorderTop}`, borderLeft: `1px solid ${glassBorderTop}`, borderRadius: "9999px", boxShadow: lightShadow }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: mutedText }}>{displayUsername}</span>
+              </div>
+          {!isLast && (
+            <div style={{ display: "flex", alignItems: "center", color: mutedText, fontSize: "13px", fontWeight: 700 }}>
+              <span style={{ textTransform: "uppercase", letterSpacing: "1px" }}>Swipe</span>
+              <SwipeArrow color={mutedText} />
+            </div>
+          )}
+        </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // THEME 12: LIQUID GLASS (Thick refractive liquid glass UI)
+  // ==========================================
+  if (themeName === "liquid-glass") {
+    const po = slide.paletteOverride;
+    // Thick glass styles for cards
+    const glassFill = "rgba(255,255,255,0.4)";
+    const glassBorder = "rgba(255,255,255,0.9)";
+    const insetShadow = "inset 0px 8px 16px rgba(255,255,255,1), inset 0px -8px 16px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.1)";
+    const text = po?.text || "#0f172a";
+    const mutedText = "rgba(15, 23, 42, 0.6)";
+    // We will use gradients or solid vibrant accents
+    const accent = po?.primary || "#0ea5e9";
+    const accentBg = po?.primary ? po.primary : "linear-gradient(135deg, #0ea5e9, #f97316)";
+
+    return (
+      <div
+        style={{
+          width: "1080px",
+          height: "1350px",
+          backgroundColor: "#f8fafc",
+          color: text,
+          fontFamily: "Outfit",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+          position: "relative",
+          overflow: "hidden",
+          ...bgImageStyle,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", zIndex: 10, padding: "80px", justifyContent: "space-between" }}>
+        {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
+        <ProgressBar order={order} totalSlides={totalSlides} accentColor={accent} />
+
+        {type === "COVER" ? null : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 24px", backgroundColor: glassFill, border: `2px solid ${glassBorder}`, borderRadius: "9999px", boxShadow: insetShadow }}>
+            <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "2px", color: mutedText, textTransform: "uppercase" }}>
+              {type === "CLOSING" ? "Conclusion" : "Insight"}
+            </span>
+            <span style={{ fontSize: "13px", color: mutedText, fontWeight: 800 }}>{pageLabel}</span>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: type === "COVER" ? "0" : "30px 0" }}>
+          {type === "COVER" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", flexGrow: 1, justifyContent: "center" }}>
+              <div style={{ padding: "40px 60px", backgroundColor: glassFill, border: `3px solid ${glassBorder}`, borderRadius: "40px", boxShadow: insetShadow, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <h1 style={{ fontSize: "72px", fontWeight: 900, lineHeight: 1.1, marginBottom: "30px", letterSpacing: "-2px" }}>
+                  {renderFormattedText(title, { color: accent }, { color: text }, "center")}
+                </h1>
+                {body && (
+                  <p style={{ fontSize: "24px", color: mutedText, lineHeight: 1.5, maxWidth: "800px", fontWeight: 600 }}>
+                    {renderFormattedText(body, {}, {}, "center")}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : type === "CLOSING" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <h1 style={{ fontSize: "60px", fontWeight: 900, lineHeight: 1.2, marginBottom: "35px", letterSpacing: "-1.5px" }}>
+                {renderFormattedText(title, { color: accent }, { color: text }, "center")}
+              </h1>
+              <p style={{ fontSize: "24px", color: mutedText, lineHeight: 1.5, marginBottom: "40px", maxWidth: "700px", fontWeight: 600 }}>
+                {renderFormattedText(body, {}, {}, "center")}
+              </p>
+            <div style={{ display: "flex", padding: "20px 60px", background: accentBg, border: `2px solid rgba(255,255,255,0.3)`, borderRadius: "9999px", boxShadow: "inset 0px 4px 10px rgba(255,255,255,0.5), 0 15px 30px rgba(14, 165, 233, 0.3)" }}>
+              <span style={{ fontSize: "24px", fontWeight: 900, color: "#ffffff", letterSpacing: "1px" }}>{displayUsername || "Join Now"}</span>
+            </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", padding: "40px", backgroundColor: glassFill, border: `3px solid ${glassBorder}`, borderRadius: "40px", boxShadow: insetShadow }}>
+              <h2 style={{ fontSize: "46px", fontWeight: 900, lineHeight: 1.2, marginBottom: "25px", letterSpacing: "-1px" }}>
+                {renderFormattedText(title, { color: accent })}
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {(() => {
+                  if (visualType === "code-block") {
+                    return (
+                  <div style={{ display: "flex", backgroundColor: "#ffffff", borderRadius: "24px", overflow: "hidden", marginBottom: "16px", border: `2px solid ${glassBorder}` }}>
+                    {renderCodeBlock(visualData, "light")}
+                  </div>
+                    );
+                  }
+                  if (visualType && visualType !== "text-only") {
+                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: glassFill, glassBorder: glassBorder, accentBg: accentBg, diagramStyle: "liquid-glass" } as any);
+                    if (diagram) {
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "20px" }}>{diagram}</div>
+                          {body && (
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                                const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                                if (!cleanBullet) return null;
+                                return (
+                                  <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "10px" }}>
+                                    <div style={{ marginRight: "12px", width: "16px", height: "16px", marginTop: "5px", borderRadius: "50%", background: accentBg, flexShrink: 0, boxShadow: "inset 0 2px 4px rgba(255,255,255,0.6)" }} />
+                                    <p style={{ fontSize: "18px", color: mutedText, lineHeight: 1.45, margin: 0, fontWeight: 500 }}>
+                                      {renderFormattedText(cleanBullet, {}, {}, "flex-start")}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  }
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, accent, text, mutedText, "•", false, {}, {})}</div>;
+                })()}
+                {imageUrl && imageLayout === "inline" && (
+                  <div style={{ display: "flex", marginTop: "20px", borderRadius: "24px", overflow: "hidden", border: `3px solid ${glassBorder}` }}>
+                    <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+              <div style={{ display: "flex", padding: "10px 24px", backgroundColor: glassFill, border: `2px solid ${glassBorder}`, borderRadius: "9999px", boxShadow: insetShadow }}>
+                <span style={{ fontSize: "14px", fontWeight: 800, color: mutedText }}>{displayUsername}</span>
+              </div>
+          {!isLast && (
+            <div style={{ display: "flex", alignItems: "center", color: mutedText, fontSize: "14px", fontWeight: 800 }}>
+              <span style={{ textTransform: "uppercase", letterSpacing: "1.5px" }}>Swipe</span>
+              <SwipeArrow color={mutedText} />
+            </div>
+          )}
+        </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 13. SKETCH (Blueprint / Technical Draft)
+  // ==========================================
+  if (themeName === "sketch") {
+    const po = slide.paletteOverride;
+    const text = po?.text || "#2d2d2d";
+    const mutedText = "rgba(45,45,45,0.6)";
+    const accent = po?.primary || "#2563eb"; // Blue accent for pills, crosshairs
+    const bgFill = "#f8f9fa"; // Very light grey paper
+
+    const badgeShadow = `0px 4px 12px rgba(0,0,0,0.06)`;
+    const cardShadow = `0px 12px 32px rgba(0,0,0,0.04)`;
+    const gridLineColor = "rgba(45,45,45,0.08)";
+    const gridLineStrong = "rgba(45,45,45,0.15)";
+    
+    const sketchCodeStyle: React.CSSProperties = {
+      fontFamily: "JetBrains Mono",
+      fontSize: "inherit",
+      backgroundColor: "rgba(45,45,45,0.04)",
+      color: text,
+      padding: "4px 12px",
+      borderRadius: "8px",
+      margin: "0 4px",
+      border: `1px solid ${gridLineStrong}`,
+    };
+
+    return (
+      <div
+        style={{
+          width: "1080px",
+          height: "1350px",
+          backgroundColor: bgFill,
+          color: text,
+          fontFamily: "Outfit",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+          position: "relative",
+          overflow: "hidden",
+          ...bgImageStyle,
+        }}
+      >
+        {/* Architectural Grid Background */}
+        {!hasBgImage && (
+          <div style={{ position: "absolute", inset: 0, display: "flex" }}>
+            <svg width="1080" height="1350" viewBox="0 0 1080 1350" fill="none">
+              <defs>
+                <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke={gridLineColor} strokeWidth="0.5" />
+                </pattern>
+                <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <rect width="100" height="100" fill="url(#smallGrid)" />
+                  <path d="M 100 0 L 0 0 0 100" fill="none" stroke={gridLineStrong} strokeWidth="1" />
+                </pattern>
+                <radialGradient id="centerSpread" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor={accent} stopOpacity="0.25" />
+                  <stop offset="100%" stopColor={accent} stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <rect width="1080" height="1350" fill="url(#grid)" />
+              {/* Technical Accents */}
+              <circle cx="540" cy="675" r="400" fill="url(#centerSpread)" />
+              <circle cx="540" cy="675" r="400" stroke={gridLineStrong} strokeWidth="1" fill="none" />
+              <path d="M0,675 L1080,675 M540,0 L540,1350" stroke={gridLineColor} strokeWidth="1" />
+              {/* Top crosshair */}
+              <path d="M 540 20 L 540 80 M 510 50 L 570 50" stroke={accent} strokeWidth="1.5" />
+            </svg>
+            <div style={{ position: "absolute", top: "16px", left: "16px", fontFamily: "JetBrains Mono", fontSize: "14px", color: mutedText }}>01 02 03 04 05</div>
+            <div style={{ position: "absolute", bottom: "16px", right: "20px", fontFamily: "JetBrains Mono", fontSize: "14px", color: mutedText }}>1080x1350 px</div>
+          </div>
+        )}
+        
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", zIndex: 10, padding: "80px", justifyContent: "space-between" }}>
+        {renderSlideShapes(shapes)}
+        
+        {/* Precise Coordinate Progress */}
+        <div style={{ display: "flex", justifyContent: "center", position: "absolute", top: "50px", left: "0", right: "0" }}>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            {Array.from({ length: totalSlides }).map((_, i) => (
+              <div key={i} style={{ display: "flex", width: "8px", height: "8px", borderRadius: "4px", backgroundColor: i === order ? accent : gridLineStrong }} />
+            ))}
+          </div>
+        </div>
+
+        {type === "COVER" ? null : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "24px", borderBottom: `1px solid ${gridLineStrong}` }}>
+            <div style={{ display: "flex", padding: "8px 24px", borderRadius: "100px", background: `linear-gradient(135deg, ${accent}, ${text})`, color: "#fff", boxShadow: badgeShadow, fontFamily: "Outfit", fontSize: "22px" }}>
+              {type === "CLOSING" ? "conclusion" : "insight"}
+            </div>
+            <span style={{ fontSize: "20px", fontWeight: 400, fontFamily: "JetBrains Mono", color: mutedText }}>{pageLabel}</span>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: type === "COVER" ? "0" : "60px 0" }}>
+          {type === "COVER" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", flexGrow: 1, justifyContent: "center", position: "relative" }}>
+              <div style={{ display: "flex", padding: "12px 32px", borderRadius: "100px", background: `linear-gradient(135deg, ${accent}, ${text})`, color: "#fff", boxShadow: badgeShadow, fontFamily: "Outfit", fontSize: "28px", fontWeight: 500, marginBottom: "40px" }}>
+                {displayUsername}
+              </div>
+              <h1 style={{ fontSize: "110px", fontWeight: 700, lineHeight: 1.05, marginBottom: "30px", letterSpacing: "-0.03em" }}>
+                {renderFormattedText(title, { color: text }, {}, "center", sketchCodeStyle)}
+              </h1>
+              {body && (
+                <p style={{ fontSize: "36px", color: mutedText, lineHeight: 1.4, maxWidth: "800px", fontWeight: 400 }}>
+                  {renderFormattedText(body, {}, {}, "center", sketchCodeStyle)}
+                </p>
+              )}
+            </div>
+          ) : type === "CLOSING" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", backgroundColor: "#fff", padding: "80px 60px", borderRadius: "24px", border: `1px solid ${gridLineStrong}`, boxShadow: cardShadow }}>
+              <h1 style={{ fontSize: "80px", fontWeight: 700, lineHeight: 1.1, marginBottom: "40px", letterSpacing: "-0.02em" }}>
+                {renderFormattedText(title, { color: text }, {}, "center", sketchCodeStyle)}
+              </h1>
+              <p style={{ fontSize: "34px", color: mutedText, lineHeight: 1.4, marginBottom: "60px", maxWidth: "700px", fontWeight: 400 }}>
+                {renderFormattedText(body, {}, {}, "center", sketchCodeStyle)}
+              </p>
+              <div style={{ display: "flex", padding: "20px 48px", borderRadius: "100px", background: `linear-gradient(135deg, ${accent}, ${text})`, color: "#fff", boxShadow: badgeShadow }}>
+                <span style={{ fontSize: "32px", fontWeight: 600 }}>{displayUsername || "Join Now"}</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <h2 style={{ fontSize: "72px", fontWeight: 700, lineHeight: 1.1, marginBottom: "40px", letterSpacing: "-0.02em" }}>
+                {renderFormattedText(title, { color: text }, {}, "flex-start", sketchCodeStyle)}
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {(() => {
+                  if (visualType === "code-block") {
+                    return (
+                      <div style={{ display: "flex", border: `1px solid ${gridLineStrong}`, padding: "24px", borderRadius: "16px", marginBottom: "30px", backgroundColor: "#fff", boxShadow: cardShadow }}>
+                        {renderCodeBlock(visualData, "light")}
+                      </div>
+                    );
+                  }
+                  if (visualType && visualType !== "text-only") {
+                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: "transparent", glassBorder: gridLineStrong, accentBg: accent, cardShadow: cardShadow } as any);
+                    if (diagram) {
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                          <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "32px", backgroundColor: "#fff", borderRadius: "20px", border: `1px solid ${gridLineStrong}`, boxShadow: cardShadow, padding: "24px" }}>
+                            {diagram}
+                          </div>
+                          {body && (
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                                const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                                if (!cleanBullet) return null;
+                                return (
+                                  <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "16px" }}>
+                                    <div style={{ display: "flex", marginTop: "12px", marginRight: "20px", width: "8px", height: "8px", backgroundColor: accent, borderRadius: "50%", flexShrink: 0 }} />
+                                    <p style={{ fontSize: "32px", color: text, lineHeight: 1.4, margin: 0, fontWeight: 400 }}>
+                                      {renderFormattedText(cleanBullet, {}, {}, "flex-start", sketchCodeStyle)}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  }
+                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, text, text, mutedText, "", true, { fontSize: "34px", lineHeight: 1.4 }, { fontSize: "34px", lineHeight: 1.4, color: text })}</div>;
+                })()}
+                {imageUrl && imageLayout === "inline" && (
+                  <div style={{ display: "flex", marginTop: "40px", borderRadius: "20px", border: `1px solid ${gridLineStrong}`, backgroundColor: "#fff", boxShadow: cardShadow, overflow: "hidden", padding: "12px" }}>
+                    <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block", borderRadius: "12px" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "24px", borderTop: `1px solid ${gridLineStrong}` }}>
+          <div style={{ display: "flex", alignItems: "center", fontFamily: "JetBrains Mono", fontSize: "18px", color: mutedText }}>
+            <span style={{ border: `1px solid ${gridLineStrong}`, padding: "6px 16px", borderRadius: "100px", backgroundColor: "#fff" }}>
+              {displayUsername}
+            </span>
+          </div>
+          {!isLast && (
+            <div style={{ display: "flex", alignItems: "center", color: accent, fontSize: "18px", fontFamily: "JetBrains Mono", fontWeight: 600 }}>
+              <span>SWIPE</span>
+              <div style={{ marginLeft: "12px", display: "flex" }}>
+                <SwipeArrow color={accent} />
+              </div>
+            </div>
+          )}
+        </div>
         </div>
       </div>
     );
