@@ -1,12 +1,15 @@
 import React from "react";
 import type { TokenizedLine } from "./tokenize-code";
 
+export type CodeBlockVariant = "default" | "macos";
+
 interface CodeBlockProps {
   language: string;
   code: string;
   highlightLines?: number[];
   tokens?: TokenizedLine[];
   theme: "dark" | "light";
+  variant?: CodeBlockVariant;
 }
 
 const CARD_BG: Record<string, string> = {
@@ -39,7 +42,7 @@ const HIGHLIGHT_BG: Record<string, string> = {
   light: "rgba(9, 105, 218, 0.08)",
 };
 
-export function CodeBlock({ language, code, highlightLines = [], tokens, theme }: CodeBlockProps) {
+export function CodeBlock({ language, code, highlightLines = [], tokens, theme, variant = "default" }: CodeBlockProps) {
   if (!tokens || tokens.length === 0) return null;
 
   const maxLineDigits = String(tokens.length).length;
@@ -64,34 +67,46 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme }
         overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px 16px",
-          borderBottom: `1px solid ${BORDER_COLOR[theme]}`,
-          backgroundColor: LABEL_BG[theme],
-        }}
-      >
-        <span
+      {variant === "macos" ? (
+        <div style={{ display: "flex", padding: "10px 20px", backgroundColor: LABEL_BG[theme], borderBottom: `1px solid ${BORDER_COLOR[theme]}` }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#ff5f57" }} />
+            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#febc2e" }} />
+            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#28c840" }} />
+          </div>
+          <span style={{ flex: 1, textAlign: "center", fontSize: "13px", fontFamily: "JetBrains Mono", color: LABEL_TEXT[theme], fontWeight: 500 }}>
+            {langLabel.toLowerCase()}
+          </span>
+        </div>
+      ) : (
+        <div
           style={{
-            fontSize: "11px",
-            fontWeight: 700,
-            color: LABEL_TEXT[theme],
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 16px",
+            borderBottom: `1px solid ${BORDER_COLOR[theme]}`,
+            backgroundColor: LABEL_BG[theme],
           }}
         >
-          {langLabel}
-        </span>
-      </div>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              color: LABEL_TEXT[theme],
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            {langLabel}
+          </span>
+        </div>
+      )}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           padding: "12px 0",
-          overflow: "hidden",
         }}
       >
         {tokens.map((line) => {
@@ -124,8 +139,6 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme }
               <div
                 style={{
                   display: "flex",
-                  flexWrap: "wrap",
-                  whiteSpace: "pre",
                   fontFamily: "JetBrains Mono",
                   paddingLeft: isBash ? "8px" : "0px",
                   alignItems: "center",
@@ -133,7 +146,7 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme }
               >
                 {/* Bash prompt prefix — visual only, does not mutate stored code */}
                 {isBash && (
-                  <span style={{ color: theme === "dark" ? "#4d9375" : "#0a7c3e", fontFamily: "JetBrains Mono", whiteSpace: "pre", userSelect: "none", marginRight: "6px", fontWeight: 700 }}>$</span>
+                  <span style={{ color: theme === "dark" ? "#4d9375" : "#0a7c3e", fontFamily: "JetBrains Mono", whiteSpace: "pre", userSelect: "none", marginRight: "6px", fontWeight: 700 }}>$ </span>
                 )}
                 {line.tokens.length > 0
                   ? line.tokens.map((token, ti) => (

@@ -531,10 +531,14 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
       <svg width="600" height="360" viewBox="0 0 600 360" fill="none" style={{ position: "absolute", top: 0, left: 0 }}>
         {spokes.map((_: any, idx: number) => {
           const angle = startAngle + idx * angleStep;
-          const ex = cx + Math.cos(angle) * spokeRadius;
-          const ey = cy + Math.sin(angle) * spokeRadius;
+          const startR = 60;
+          const endR = spokeRadius - 45;
+          const sx = cx + Math.cos(angle) * startR;
+          const sy = cy + Math.sin(angle) * startR;
+          const ex = cx + Math.cos(angle) * endR;
+          const ey = cy + Math.sin(angle) * endR;
           return (
-            <line key={idx} x1={cx} y1={cy} x2={ex} y2={ey} stroke={colors.accent} strokeWidth="2.5" opacity="0.35" />
+            <line key={idx} x1={sx} y1={sy} x2={ex} y2={ey} stroke={colors.accent} strokeWidth="2.5" opacity="0.35" />
           );
         })}
       </svg>
@@ -879,19 +883,9 @@ const renderDiagram = (
   return null;
 };
 
-const renderCodeBlock = (visualData: any, theme: "dark" | "light") => {
+const renderCodeBlock = (visualData: any, theme: "dark" | "light", variant: "default" | "macos" = "default") => {
   if (!visualData?.code || !visualData?.tokens) return null;
-  return (
-    <div style={{ display: "flex", width: "100%", justifyContent: "center", alignItems: "center" }}>
-      <CodeBlock
-        language={visualData.language || "plaintext"}
-        code={visualData.code}
-        highlightLines={visualData.highlightLines || []}
-        tokens={visualData.tokens}
-        theme={theme}
-      />
-    </div>
-  );
+  return <CodeBlock language={visualData.language || "plaintext"} code={visualData.code} highlightLines={visualData.highlightLines || []} tokens={visualData.tokens} theme={theme} variant={variant} />;
 };
 
 // Parses asterisk emphasis wrapped in *text* to render formatted Playfair Display Italic inline
@@ -1199,7 +1193,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   } : {};
 
   // Setup the thread-local scribble variables
-  const scribbleColor = themeName === "cyber-horizon" ? "#ea580c" : themeName === "linen-rust" ? "#c5563c" : themeName === "warm-editorial" ? "#e05a47" : themeName === "soft-gradient" ? "#7c3aed" : themeName === "mesh-glow" ? "#ec4899" : themeName === "neo-brutalism" ? "#161616" : themeName === "neomorphism" ? "#6D8CAE" : themeName === "frosted-grid" ? "#FDE68A" : themeName === "glassmorphism" ? "#38bdf8" : themeName === "liquid-glass" ? "#0ea5e9" : "#ffffff";
+  const scribbleColor = themeName === "cyber-horizon" ? "#ea580c" : themeName === "linen-rust" ? "#c5563c" : themeName === "warm-editorial" ? "#e05a47" : themeName === "soft-gradient" ? "#7c3aed" : themeName === "mesh-glow" ? "#ec4899" : themeName === "neo-brutalism" ? "#161616" : themeName === "neomorphism" ? "#6D8CAE" : themeName === "frosted-grid" ? "#FDE68A" : themeName === "glassmorphism" ? "#38bdf8" : themeName === "liquid-glass" ? "#0ea5e9" : themeName === "wireframe-3d" ? "#000000" : "#ffffff";
   currentScribbleState = scribble && type !== "COVER" && type !== "CLOSING" ? { scribble: true, color: scribbleColor } : null;
 
   try {
@@ -1491,8 +1485,8 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
         </div>
       </div>
     </div>
-    );
-  }
+  );
+}
 
   // ==========================================
     // THEME 4: WARM EDITORIAL (cream-sand, terracotta accents, seamless connecting line)
@@ -1950,9 +1944,9 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
   }
 
   // ==========================================
-    // THEME 7: LINEN & RUST (Editorial, organic tactile)
-    // ==========================================
-    if (themeName === "linen-rust") {
+  // THEME 7: LINEN & RUST (Editorial, organic tactile)
+  // ==========================================
+  if (themeName === "linen-rust") {
     const po = slide.paletteOverride;
     const lrText = po?.text || "#2a2827";
     const lrAccent = po?.primary || "#b84a30"; // Deepened rust
@@ -2325,17 +2319,13 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
     const raisedShadow = "-16px -16px 32px rgba(255,255,255,0.8), 16px 16px 32px rgba(0,0,0,0.14)";
     const insetShadow = "inset -8px -8px 16px rgba(255,255,255,0.6), inset 8px 8px 16px rgba(0,0,0,0.1)";
 const extrudedCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
-  <div style={{ display: "flex", borderRadius: "20px", padding: 0, boxShadow: darkShadow, ...extraStyle }}>
-    <div style={{ display: "flex", flex: 1, backgroundColor: bg, borderRadius: "20px", padding: "24px", boxShadow: lightShadow, boxSizing: "border-box" }}>
-      {content}
-    </div>
+  <div style={{ display: "flex", flex: 1, backgroundColor: bg, borderRadius: "20px", padding: "24px", boxShadow: `${lightShadow}, ${darkShadow}`, boxSizing: "border-box", ...extraStyle }}>
+    {content}
   </div>
 );
 const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {}) => (
-  <div style={{ display: "flex", backgroundColor: bg, borderRadius: "20px", padding: "24px", boxShadow: "inset -8px -8px 16px rgba(255,255,255,0.6)", ...extraStyle }}>
-    <div style={{ display: "flex", flex: 1, borderRadius: "20px", boxShadow: "inset 8px 8px 16px rgba(0,0,0,0.1)", boxSizing: "border-box" }}>
-      {content}
-    </div>
+  <div style={{ display: "flex", flex: 1, backgroundColor: bg, borderRadius: "20px", padding: "24px", boxShadow: insetShadow, boxSizing: "border-box", ...extraStyle }}>
+    {content}
   </div>
 );
     return (
@@ -2381,9 +2371,7 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
                   {renderFormattedText(body, {}, {}, "center")}
                 </p>, { padding: 0 }
               )}
-              <div style={{ marginTop: "50px", width: "180px", height: "180px", borderRadius: "50%", background: accentBg, boxShadow: "16px 16px 32px rgba(0,0,0,0.14)" }}>
-                <div style={{ width: "100%", height: "100%", borderRadius: "50%", boxShadow: "-16px -16px 32px rgba(255,255,255,0.8)" }} />
-              </div>
+              <div style={{ marginTop: "50px", width: "180px", height: "180px", borderRadius: "50%", background: accentBg, boxShadow: "16px 16px 32px rgba(0,0,0,0.14), -16px -16px 32px rgba(255,255,255,0.8)" }} />
             </div>
           ) : type === "CLOSING" ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
@@ -2391,10 +2379,8 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
               <h1 style={{ fontSize: "52px", fontWeight: 600, lineHeight: 1.2, marginBottom: "35px", letterSpacing: "-1px" }}>
                 {renderFormattedText(title, { color: accent }, { color: text }, "center")}
               </h1>
-            <div style={{ display: "flex", padding: "18px 48px", backgroundColor: accent, borderRadius: "9999px", boxShadow: "16px 16px 32px rgba(0,0,0,0.14)" }}>
-              <div style={{ display: "flex", width: "100%", height: "100%", borderRadius: "9999px", boxShadow: "-16px -16px 32px rgba(255,255,255,0.8)" }}>
-                <span style={{ fontSize: "22px", fontWeight: 900, color: "#ffffff", letterSpacing: "1px" }}>{body || displayUsername || "Get Started"}</span>
-              </div>
+            <div style={{ display: "flex", padding: "18px 48px", backgroundColor: accent, borderRadius: "9999px", boxShadow: "16px 16px 32px rgba(0,0,0,0.14), -16px -16px 32px rgba(255,255,255,0.8)" }}>
+              <span style={{ fontSize: "22px", fontWeight: 900, color: "#ffffff", letterSpacing: "1px" }}>{body || displayUsername || "Get Started"}</span>
             </div>
             </div>
           ) : (
@@ -2403,41 +2389,46 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
                 {renderFormattedText(title, { color: accent })}
               </h2>
               <div style={{ display: "flex", flexDirection: "column" }}>
-                {(() => {
-                  if (visualType === "code-block") {
-                    return insetCard(renderCodeBlock(visualData, "light"), { padding: "8px", marginBottom: "20px" });
-                  }
-                  if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, accentBg });
-                    if (diagram) {
-                      return (
-                        <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                          {insetCard(
-                            <div style={{ display: "flex", width: "100%", justifyContent: "center" }}>{diagram}</div>,
-                            { marginBottom: "20px" }
-                          )}
-                          {body && (
-                            <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
-                              {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
-                                const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
-                                if (!cleanBullet) return null;
-                                return (
-                                  <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "8px" }}>
-                                    <span style={{ marginRight: "10px", flexShrink: 0, color: accent, fontSize: "16px", fontWeight: "bold" }}>•</span>
-                                    <p style={{ fontSize: "18px", color: mutedText, lineHeight: 1.45, margin: 0 }}>
-                                      {renderFormattedText(cleanBullet, {}, {}, "flex-start")}
-                                    </p>
-                                  </div>
-                                );
-                              })}
+                {extrudedCard(
+                  <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                    {(() => {
+                      if (visualType === "code-block") {
+                        return (
+                          <div style={{ display: "flex", width: "100%", marginBottom: body ? "30px" : "0" }}>
+                            {renderCodeBlock(visualData, "light")}
+                          </div>
+                        );
+                      }
+                      if (visualType && visualType !== "text-only") {
+                        const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, accentBg });
+                        if (diagram) {
+                          return (
+                            <div style={{ display: "flex", width: "100%", justifyContent: "center", marginBottom: body ? "30px" : "0" }}>
+                              {diagram}
                             </div>
-                          )}
-                        </div>
-                      );
-                    }
-                  }
-                  return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, accent, text, mutedText, "•", false, {}, {})}</div>;
-                })()}
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+                    {body && (
+                      <div style={{ display: "flex", flexDirection: "column", padding: "0 10px" }}>
+                        {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                          const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                          if (!cleanBullet) return null;
+                          return (
+                            <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "8px" }}>
+                              <span style={{ marginRight: "10px", flexShrink: 0, color: accent, fontSize: "16px", fontWeight: "bold" }}>•</span>
+                              <p style={{ fontSize: "18px", color: mutedText, lineHeight: 1.45, margin: 0 }}>
+                                {renderFormattedText(cleanBullet, {}, {}, "flex-start")}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {imageUrl && imageLayout === "inline" && (
                   <div style={{ display: "flex", marginTop: "20px", borderRadius: "20px", overflow: "hidden", boxShadow: insetShadow }}>
                     <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }} />
@@ -2511,36 +2502,36 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
         
         {/* Frosted blocks grid */}
         <div style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", display: "flex", zIndex: 1 }}>
-          {Array.from({ length: 130 }).map((_, i) => {
-            const row = Math.floor(i / 10);
-            const col = i % 10;
-            const startRow = blockHeights[col];
-            
-            if (row >= startRow) {
-              const isEdge = row === startRow;
-              // Deterministic random opacity based on position
-              const random = ((row * 13) + (col * 7)) % 10;
-              const opacity = isEdge ? 0.6 : (0.15 + random * 0.05);
-              return (
-                <div key={i} style={{
-                  width: "108px",
-                  height: "108px",
-                  backgroundColor: `rgba(255, 255, 255, ${opacity})`,
-                  borderTop: "1.5px solid rgba(255, 255, 255, 0.9)",
-                  borderLeft: "1.5px solid rgba(255, 255, 255, 0.9)",
-                  borderRight: "1px solid rgba(0, 0, 0, 0.03)",
-                  borderBottom: "1px solid rgba(0, 0, 0, 0.03)",
-                  boxShadow: "inset 4px 4px 12px rgba(255, 255, 255, 0.6), 6px 6px 15px rgba(0, 0, 0, 0.05)",
-                  borderRadius: "20px",
-                  position: "absolute",
-                  left: `${col * 108}px`,
-                  top: `${row * 108}px`,
-                  boxSizing: "border-box"
-                }} />
-              );
-            }
-            return null;
-          })}
+          {[
+            // Top Right Cluster
+            { r: 0, c: 9, o: 0.6 },
+            { r: 1, c: 9, o: 0.5 },
+            { r: 0, c: 8, o: 0.4 },
+            { r: 1, c: 8, o: 0.35 },
+            { r: 2, c: 9, o: 0.25 },
+            // Bottom Left Cluster
+            { r: 12, c: 0, o: 0.5 },
+            { r: 11, c: 0, o: 0.4 },
+            { r: 12, c: 1, o: 0.3 },
+            { r: 11, c: 1, o: 0.25 },
+            { r: 10, c: 0, o: 0.15 },
+          ].map((block, i) => (
+            <div key={i} style={{
+              width: "108px",
+              height: "108px",
+              backgroundColor: `rgba(255, 255, 255, ${block.o})`,
+              borderTop: "1.5px solid rgba(255, 255, 255, 0.9)",
+              borderLeft: "1.5px solid rgba(255, 255, 255, 0.9)",
+              borderRight: "1px solid rgba(0, 0, 0, 0.03)",
+              borderBottom: "1px solid rgba(0, 0, 0, 0.03)",
+              boxShadow: "inset 4px 4px 12px rgba(255, 255, 255, 0.6), 6px 6px 15px rgba(0, 0, 0, 0.05)",
+              borderRadius: "20px",
+              position: "absolute",
+              left: `${block.c * 108}px`,
+              top: `${block.r * 108}px`,
+              boxSizing: "border-box"
+            }} />
+          ))}
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", zIndex: 10, padding: "80px", justifyContent: "space-between" }}>
@@ -2840,7 +2831,7 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
     const mutedText = "rgba(15, 23, 42, 0.6)";
     // We will use gradients or solid vibrant accents
     const accent = po?.primary || "#0ea5e9";
-    const accentBg = po?.primary ? po.primary : "linear-gradient(135deg, #0ea5e9, #f97316)";
+    const accentBg = po?.primary ? po.primary : "linear-gradient(135deg, #7dd3fc, #1e40af)";
 
     return (
       <div
@@ -2858,16 +2849,39 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
           ...bgImageStyle,
         }}
       >
+        {/* Colorful Abstract Background for Liquid Glass */}
+        {!bgImageStyle.backgroundImage && (
+          <svg style={{ position: "absolute", top: 0, left: 0, width: "1080px", height: "1350px", zIndex: 0, pointerEvents: "none" }}>
+            <defs>
+              <radialGradient id="lg-blob-1" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity={type === "COVER" ? "0.7" : "0.4"} />
+                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+              </radialGradient>
+              <radialGradient id="lg-blob-2" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#a855f7" stopOpacity={type === "COVER" ? "0.6" : "0.3"} />
+                <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+              </radialGradient>
+              <radialGradient id="lg-blob-3" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#10b981" stopOpacity={type === "COVER" ? "0.5" : "0.2"} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx="200" cy="200" r="400" fill="url(#lg-blob-1)" />
+            <circle cx="800" cy="1100" r="450" fill="url(#lg-blob-2)" />
+            <circle cx="800" cy="500" r="350" fill="url(#lg-blob-3)" />
+          </svg>
+        )}
+
         <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", zIndex: 10, padding: "80px", justifyContent: "space-between" }}>
         {renderSlideShapes(shapes)}{type !== "COVER" && type !== "CLOSING" && scribble ? <ScribbleOverlay order={order} totalSlides={totalSlides} theme={themeName} /> : null}
-        <ProgressBar order={order} totalSlides={totalSlides} accentColor={accent} />
-
+        {/* Progress bar integrated into the top bar */}
         {type === "COVER" ? null : (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 24px", backgroundColor: glassFill, border: `2px solid ${glassBorder}`, borderRadius: "9999px", boxShadow: insetShadow }}>
-            <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "2px", color: mutedText, textTransform: "uppercase" }}>
+          <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 24px", backgroundColor: glassFill, border: `2px solid ${glassBorder}`, borderRadius: "9999px", boxShadow: insetShadow, overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${((order + 1) / totalSlides) * 100}%`, background: accentBg, opacity: 0.4, zIndex: 0 }} />
+            <span style={{ position: "relative", fontSize: "11px", fontWeight: 800, letterSpacing: "2px", color: mutedText, textTransform: "uppercase", zIndex: 1 }}>
               {type === "CLOSING" ? "Conclusion" : "Insight"}
             </span>
-            <span style={{ fontSize: "13px", color: mutedText, fontWeight: 800 }}>{pageLabel}</span>
+            <span style={{ position: "relative", fontSize: "13px", color: mutedText, fontWeight: 800, zIndex: 1 }}>{pageLabel}</span>
           </div>
         )}
 
@@ -2960,6 +2974,202 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
             </div>
           )}
         </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 14. WIREFRAME 3D (Isometric technical blueprint)
+  // ==========================================
+  if (themeName === "wireframe-3d") {
+    const po = slide.paletteOverride;
+    const text = po?.text || "#000000";
+    const mutedText = po?.text ? "rgba(0,0,0,0.7)" : "#333333";
+    const accent = po?.primary || "#000000"; 
+    const bgFill = "#f4f4f4"; // Slightly off-white for the background
+    const gridLine = "rgba(0,0,0,0.06)";
+    const borderThick = "3px solid #000000";
+    const borderThin = "1px solid #000000";
+    const cardShadow = "-15px 15px 0px rgba(0,0,0,0.15), -30px 30px 0px rgba(0,0,0,0.08)";
+
+    const wireCodeStyle: React.CSSProperties = {
+      fontFamily: "JetBrains Mono",
+      fontWeight: 600,
+      backgroundColor: "rgba(0,0,0,0.05)",
+      color: accent,
+      padding: "4px 12px",
+      borderRadius: "0px",
+      margin: "0 4px",
+      border: borderThin,
+    };
+
+    return (
+      <div
+        style={{
+          width: "1080px",
+          height: "1350px",
+          backgroundColor: bgFill,
+          color: text,
+          fontFamily: "Outfit",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+          position: "relative",
+          overflow: "hidden",
+          ...bgImageStyle,
+        }}
+      >
+        {/* Fine standard grid background inspired by the image */}
+        {!hasBgImage && (
+          <div style={{ position: "absolute", inset: 0, display: "flex" }}>
+            <svg width="1080" height="1350" viewBox="0 0 1080 1350" fill="none">
+              <rect width="1080" height="1350" fill={bgFill} />
+              <defs>
+                <pattern id="w3Grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke={gridLine} strokeWidth="1" />
+                </pattern>
+                <pattern id="w3GridMajor" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <rect width="100" height="100" fill="url(#w3Grid)" />
+                  <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="1" />
+                </pattern>
+              </defs>
+              <rect width="1080" height="1350" fill="url(#w3GridMajor)" />
+            </svg>
+          </div>
+        )}
+
+        <div style={{ position: "absolute", top: "120px", left: "100px", right: "60px", bottom: "160px", backgroundColor: "#ffffff", border: borderThick, borderRadius: "30px", boxShadow: cardShadow, zIndex: 10, display: "flex", flexDirection: "column", padding: "60px", justifyContent: "space-between" }}>
+          {renderSlideShapes(shapes)}
+
+          {/* Top Header inside card */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "4px" }}>
+              <div style={{ width: "24px", height: "24px", backgroundColor: text }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <div style={{ width: "12px", height: "10px", backgroundColor: text }} />
+                <div style={{ width: "12px", height: "10px", backgroundColor: text }} />
+              </div>
+            </div>
+            {type !== "COVER" && (
+              <span style={{ fontSize: "14px", fontFamily: "JetBrains Mono", fontWeight: 700, color: text, letterSpacing: "2px", textTransform: "uppercase" }}>
+                {type === "CLOSING" ? "Conclusion" : "Insight"}
+              </span>
+            )}
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: "14px", fontWeight: 700, color: text }}>
+              {order} / {totalSlides}
+            </span>
+          </div>
+
+
+
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1, margin: type === "COVER" ? "0" : "40px 0" }}>
+            {type === "COVER" ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", flexGrow: 1, justifyContent: "center" }}>
+                <h1 style={{ fontSize: "76px", fontFamily: "JetBrains Mono", fontWeight: 700, lineHeight: 1.1, marginBottom: "30px", letterSpacing: "-1px" }}>
+                  {renderFormattedText(title, { color: text }, {}, "flex-start", wireCodeStyle)}
+                </h1>
+                {body && (
+                  <p style={{ fontSize: "28px", color: mutedText, lineHeight: 1.4, maxWidth: "800px", fontWeight: 500, fontFamily: "JetBrains Mono" }}>
+                    {renderFormattedText(body, {}, {}, "flex-start", wireCodeStyle)}
+                  </p>
+                )}
+              </div>
+            ) : type === "CLOSING" ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left" }}>
+                <div style={{ padding: "6px 20px", border: borderThick, fontFamily: "JetBrains Mono", fontSize: "16px", fontWeight: 700, letterSpacing: "1px", marginBottom: "40px", backgroundColor: "#ffffff", color: text, textTransform: "uppercase" }}>
+                  {"> NEXT STEPS _"}
+                </div>
+                <h1 style={{ fontSize: "64px", fontFamily: "JetBrains Mono", fontWeight: 700, lineHeight: 1.1, marginBottom: "30px", letterSpacing: "-1.5px" }}>
+                  {renderFormattedText(title, { color: text }, {}, "flex-start", wireCodeStyle)}
+                </h1>
+                <p style={{ fontSize: "28px", color: mutedText, lineHeight: 1.4, marginBottom: "50px", maxWidth: "700px", fontWeight: 500, fontFamily: "JetBrains Mono" }}>
+                  {renderFormattedText(body, {}, {}, "flex-start", wireCodeStyle)}
+                </p>
+                {/* Brutalist box CTA */}
+                <div style={{ display: "flex", padding: "20px 50px", border: borderThick, backgroundColor: text }}>
+                  <span style={{ fontSize: "24px", fontFamily: "JetBrains Mono", fontWeight: 700, letterSpacing: "1px", color: "#ffffff" }}>{displayUsername || "GET STARTED"}</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <h2 style={{ fontSize: "52px", fontFamily: "JetBrains Mono", fontWeight: 700, lineHeight: 1.2, marginBottom: "30px", letterSpacing: "-1px" }}>
+                  {renderFormattedText(title, { color: text }, {}, "flex-start", wireCodeStyle)}
+                </h2>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {(() => {
+                    if (visualType === "code-block") {
+                      return (
+                        <div style={{ display: "flex", border: borderThick, padding: "20px", marginBottom: "24px", backgroundColor: "#ffffff" }}>
+                          {renderCodeBlock(visualData, "light")}
+                        </div>
+                      );
+                    }
+                    if (visualType && visualType !== "text-only") {
+                      const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: "transparent", glassBorder: "#000", accentBg: text } as any);
+                      if (diagram) {
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                            <div style={{ display: "flex", width: "100%", justifyContent: "center", minHeight: "340px", marginBottom: "30px", border: borderThick, padding: "24px", backgroundColor: "#ffffff" }}>
+                              {diagram}
+                            </div>
+                            {body && (
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                {body.split("\n").filter(Boolean).map((bullet, bIdx) => {
+                                  const cleanBullet = bullet.replace(/^[•\-\*\s]+/, "").trim();
+                                  if (!cleanBullet) return null;
+                                  return (
+                                    <div key={bIdx} style={{ display: "flex", alignItems: "flex-start", marginBottom: "16px" }}>
+                                      <span style={{ marginRight: "16px", flexShrink: 0, color: text, fontSize: "22px", fontFamily: "JetBrains Mono", fontWeight: 700, marginTop: "2px" }}>{">"}</span>
+                                      <p style={{ fontSize: "24px", fontFamily: "JetBrains Mono", color: mutedText, lineHeight: 1.4, margin: 0, fontWeight: 500 }}>
+                                        {renderFormattedText(cleanBullet, {}, {}, "flex-start", wireCodeStyle)}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                    }
+                    return <div style={{ display: "flex", flexDirection: "column" }}>{renderBulletList(body, text, text, mutedText, ">", true, { fontSize: "26px", fontFamily: "JetBrains Mono", fontWeight: 500 }, { fontSize: "26px", fontFamily: "JetBrains Mono", color: text, fontWeight: 700 })}</div>;
+                  })()}
+                  {imageUrl && imageLayout === "inline" && (
+                    <div style={{ display: "flex", flexDirection: "column", marginTop: "30px", border: borderThin, overflow: "hidden" }}>
+                      <img src={imageUrl} style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px" }}>
+                        <span style={{ fontFamily: "JetBrains Mono", fontSize: "18px", fontWeight: 700, color: text }}>
+                          {"> READY TO EXECUTE _"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "20px", borderTop: borderThin }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginRight: "8px" }}>
+                <circle cx="7" cy="7" r="6" stroke={text} strokeWidth="1" />
+                <circle cx="7" cy="7" r="2" fill={text} />
+              </svg>
+              <span style={{ fontFamily: "JetBrains Mono", fontSize: "12px", color: mutedText, border: borderThin, padding: "4px 10px" }}>
+                {displayUsername}
+              </span>
+            </div>
+            {!isLast && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2 L14 8 L8 14" stroke={text} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <line x1="14" y1="8" x2="2" y2="8" stroke={text} strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span style={{ fontFamily: "JetBrains Mono", fontSize: "11px", color: mutedText, fontWeight: 700 }}>NEXT</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -3095,18 +3305,8 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
                 {(() => {
                   if (visualType === "code-block") {
                     return (
-                      <div style={{ display: "flex", flexDirection: "column", borderRadius: "20px", overflow: "hidden", border: `1.5px solid ${gridLineStrong}`, boxShadow: cardShadow, marginBottom: "30px", maxWidth: "900px" }}>
-                        <div style={{ display: "flex", padding: "10px 20px", backgroundColor: "#1e1e1e", borderBottom: "1px solid #333" }}>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#ff5f57" }} />
-                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#febc2e" }} />
-                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#28c840" }} />
-                          </div>
-                          <span style={{ flex: 1, textAlign: "center", fontSize: "13px", fontFamily: "JetBrains Mono", color: "rgba(255,255,255,0.4)" }}>
-                            {visualData?.language || "code"}
-                          </span>
-                        </div>
-                        {renderCodeBlock(visualData, "dark")}
+                      <div style={{ display: "flex", marginBottom: "30px", borderRadius: "12px", overflow: "hidden", boxShadow: cardShadow, maxWidth: "900px" }}>
+                        {renderCodeBlock(visualData, "dark", "macos")}
                       </div>
                     );
                   }

@@ -90,7 +90,7 @@ function buildSlideArgs(slide: any, i: number, totalSlides: number, themeName: s
 async function tokenizeSlideCode(slide: any, themeName: string): Promise<any> {
   if (slide.visualType === "code-block" && slide.visualData?.code) {
     try {
-      const themeType = ["monochrome", "cyber-horizon"].includes(themeName) ? "dark" : "light";
+      const themeType = ["monochrome", "cyber-horizon", "neo-brutalism", "frosted-grid", "glassmorphism", "sketch"].includes(themeName) ? "dark" : "light";
       const tokens = await tokenizeCode(
         slide.visualData.code,
         slide.visualData.language || "plaintext",

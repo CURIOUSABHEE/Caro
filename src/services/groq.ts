@@ -45,7 +45,7 @@ function removeTrailingCommas(s: string): string {
 }
 
 // Parse LLM JSON output with multiple recovery strategies
-function tryParseJson(raw: string): any {
+function tryParseJson(raw: string): unknown {
   const s = sanitizeJsonString(raw);
   // Attempt 0: extract JSON from markdown code block fences first
   const codeBlockMatch = s.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -70,6 +70,20 @@ function tryParseJson(raw: string): any {
       }
     }
   }
+
+  // Attempt 4: Truncated JSON recovery (if token limit was hit)
+  let str = candidate;
+  while (str.length > 0) {
+    const lastBrace = str.lastIndexOf('}');
+    if (lastBrace === -1) break;
+    const testCandidate = str.substring(0, lastBrace + 1) + "]}";
+    try { 
+      const parsed = JSON.parse(testCandidate); 
+      if (parsed && Array.isArray(parsed.slides)) return parsed;
+    } catch {}
+    str = str.substring(0, lastBrace);
+  }
+
   throw new Error(`No valid JSON found in response. Raw response (first 500 chars): ${raw.slice(0, 500)}`);
 }
 
@@ -98,15 +112,16 @@ export async function planSlides(
 
   const countInstruction =
     slideCount === "auto"
-      ? "Determine an appropriate number of slides (typically 6 to 9 slides including 1 COVER and 1 CLOSING) based on the length, depth, and key arguments of the text."
+      ? "Determine the appropriate number of slides based on the length, depth, and key arguments of the text. Use as many slides as necessary to properly explain the information in digestible chunks, up to a MAXIMUM of 15 slides."
       : `Generate exactly ${slideCount} slides in total, including 1 COVER slide at the beginning, followed by content slides, and ending with exactly 1 CLOSING slide.`;
 
-  const systemPrompt = `You transform articles into educational slide carousels (6-10 slides).
+  const systemPrompt = `You transform articles into highly modular educational slide carousels.
 
 ${countInstruction}
 
 RULES:
-- Extract key points, practical lessons, and high-value details. Every slide must deliver rich, descriptive context.
+- MODULARIZE CONTENT: Break down complex ideas into multiple slides rather than cramming too much information onto a single slide. Ensure proper utilization of slide real estate so users can learn and understand in manageable chunks.
+- Extract key points, practical lessons, and high-value details. Every slide must deliver rich, descriptive context but remain focused on a single core idea.
 - COVER: first slide, text-only, short striking title.
 - CLOSING: final slide, text-only, call-to-action.
 - CONTENT: choose the best visualType for the idea:
@@ -169,8 +184,7 @@ Use only standard ASCII characters in JSON values.`;
       throw new Error("Received empty response from Groq API.");
     }
 
-    let parsed: any;
-    parsed = tryParseJson(content);
+    const parsed = tryParseJson(content) as Record<string, unknown>;
 
     if (!parsed.slides || !Array.isArray(parsed.slides)) {
       throw new Error("Invalid response format: 'slides' array not found in JSON response.");
@@ -245,8 +259,7 @@ CRITICAL RULES:
       throw new Error("Received empty response from Groq API during block regeneration.");
     }
 
-    let parsed: any;
-    parsed = tryParseJson(content);
+    const parsed = tryParseJson(content) as Record<string, unknown>;
 
     return {
       type: parsed.type === "COVER" || parsed.type === "CLOSING" ? parsed.type : "CONTENT",

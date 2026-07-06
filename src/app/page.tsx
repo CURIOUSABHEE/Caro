@@ -83,7 +83,7 @@ const PRESET_COLORS = [
   { value: "#db2777", label: "Pink" }
 ];
 
-type ThemeName = "monochrome" | "soft-gradient" | "warm-editorial" | "mesh-glow" | "cyber-horizon" | "linen-rust" | "neo-brutalism" | "neomorphism" | "frosted-grid" | "glassmorphism" | "liquid-glass" | "sketch";
+type ThemeName = "monochrome" | "soft-gradient" | "warm-editorial" | "mesh-glow" | "cyber-horizon" | "linen-rust" | "neo-brutalism" | "neomorphism" | "frosted-grid" | "glassmorphism" | "liquid-glass" | "sketch" | "wireframe-3d";
 
 const PALETTE_INFO: { name: ThemeName; label: string; colors: string[] }[] = [
   { name: "monochrome", label: "Monochrome", colors: ["#050505", "#ffffff", "#6e6e6e"] },
@@ -98,6 +98,7 @@ const PALETTE_INFO: { name: ThemeName; label: string; colors: string[] }[] = [
   { name: "glassmorphism", label: "Glassmorphism", colors: ["#0f172a", "#e2e8f0", "#ffffff"] },
   { name: "liquid-glass", label: "Liquid Glass", colors: ["#0ea5e9", "#f97316", "#f8fafc"] },
   { name: "sketch", label: "Sketch", colors: ["#2d2d2d", "#fdfaf6", "#4a4a4a"] },
+  { name: "wireframe-3d", label: "Wireframe 3D", colors: ["#ffffff", "#000000", "#e5e5e5"] },
 ];
 
 const convertBase64PngToJpg = (pngBase64Uri: string): Promise<string> => {
@@ -219,6 +220,7 @@ export default function Home() {
     "glassmorphism": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="gl-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#f8fafc"/></linearGradient></defs><rect width="400" height="500" fill="url(#gl-bg)"/>${Array.from({length: 3}).map((_, i) => `<rect x="${40 + i*10}" y="${150 + i*20}" width="280" height="180" rx="16" fill="rgba(255,255,255,0.5)" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" style="box-shadow: 0 20px 40px rgba(15,23,42,0.04), inset 0 0 0 1px rgba(255,255,255,0.3)"/>`).join("")}<text x="180" y="250" font-family="system-ui,sans-serif" font-size="28" fill="#1e293b" font-weight="800" text-anchor="middle" letter-spacing="-1">Glassmorphism</text></svg>`),
     "liquid-glass": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="lq-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><rect width="400" height="500" fill="#f8fafc"/><rect x="40" y="150" width="320" height="200" rx="100" fill="rgba(255,255,255,0.4)" stroke="rgba(255,255,255,0.9)" stroke-width="3" style="box-shadow: inset 0px 8px 16px rgba(255,255,255,1), inset 0px -8px 16px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.1)"/><circle cx="90" cy="250" r="30" fill="url(#lq-grad)"/><text x="220" y="262" font-family="system-ui,sans-serif" font-size="32" fill="#0f172a" font-weight="800" text-anchor="middle" letter-spacing="-1">Liquid Glass</text></svg>`),
     "sketch": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#fdfaf6"/><defs><pattern id="hatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="8" stroke="#2d2d2d" stroke-width="1" opacity="0.3"/></pattern></defs><rect x="40" y="150" width="320" height="200" fill="url(#hatch)"/><path d="M 38 148 L 362 152 L 358 352 L 42 348 Z" fill="none" stroke="#2d2d2d" stroke-width="2" stroke-linecap="round"/><path d="M 42 152 L 358 148 L 362 348 L 38 352 Z" fill="none" stroke="#2d2d2d" stroke-width="1.5" stroke-linecap="round"/><text x="200" y="260" font-family="cursive, system-ui" font-size="42" fill="#2d2d2d" font-weight="700" text-anchor="middle" transform="rotate(-2 200 260)">Sketch</text></svg>`),
+    "wireframe-3d": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#f4f4f4"/><defs><pattern id="w3Grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="1"/></pattern></defs><rect width="400" height="500" fill="url(#w3Grid)"/><rect x="20" y="80" width="320" height="380" rx="16" fill="rgba(0,0,0,0.08)"/><rect x="30" y="70" width="320" height="380" rx="16" fill="rgba(0,0,0,0.15)"/><rect x="40" y="60" width="320" height="380" rx="16" fill="#ffffff" stroke="#000000" stroke-width="2"/><rect x="60" y="85" width="12" height="12" fill="#000000"/><rect x="76" y="85" width="6" height="4" fill="#000000"/><rect x="76" y="93" width="6" height="4" fill="#000000"/><text x="340" y="95" font-family="monospace" font-size="12" font-weight="700" fill="#000000" text-anchor="end">01/05</text><text x="60" y="190" font-family="monospace" font-size="34" fill="#000000" font-weight="700" letter-spacing="-1">Wireframe</text><text x="60" y="230" font-family="monospace" font-size="34" fill="#000000" font-weight="700" letter-spacing="-1">3D</text><text x="60" y="260" font-family="monospace" font-size="14" fill="#333333" font-weight="600">Brutalist layout</text><text x="60" y="410" font-family="monospace" font-size="12" font-weight="700" fill="#000000">&gt; READY TO EXECUTE _</text></svg>`),
   };
 
   // Show hardcoded preview instantly, then upgrade with live render in background
@@ -2121,6 +2123,42 @@ export default function Home() {
                       <h3 className="font-extrabold text-neutral-900 text-xs">Sketch</h3>
                       <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
                         Hand-drawn hatching, rough borders, and irregular alignments.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Wireframe 3D theme card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeName("wireframe-3d");
+                      saveDraftLocally();
+                    }}
+                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
+                      themeName === "wireframe-3d"
+                        ? "border-blue-500 ring-2 ring-blue-500/10"
+                        : "border-neutral-200 hover:border-neutral-300"
+                    }`}
+                  >
+                    <div className="h-28 w-full bg-white flex items-center justify-center p-4 relative overflow-hidden">
+                      <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 400 160" fill="none">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <line key={`h-${i}`} x1={0} y1={i * 30} x2={400} y2={i * 30} stroke="#000" strokeWidth="0.5" />
+                        ))}
+                        {Array.from({ length: 14 }).map((_, i) => (
+                          <line key={`v-${i}`} x1={i * 30} y1={0} x2={i * 30} y2={160} stroke="#000" strokeWidth="0.5" />
+                        ))}
+                      </svg>
+                      <div className="border-2 border-black px-5 py-2.5 bg-white relative z-10">
+                        <span className="text-sm font-bold text-black tracking-tight font-mono">Wireframe 3D</span>
+                      </div>
+                      <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-black"></div>
+                      <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-black"></div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-center">
+                      <h3 className="font-extrabold text-neutral-900 text-xs">Wireframe 3D</h3>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
+                        Isometric grid, thin black lines, monospace labels, technical blueprint style.
                       </p>
                     </div>
                   </button>
