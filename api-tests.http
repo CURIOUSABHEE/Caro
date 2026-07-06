@@ -1,0 +1,47 @@
+### Extract Article
+POST http://localhost:3000/api/extract
+Content-Type: application/json
+
+{
+  "url": "https://example.com"
+}
+
+###
+
+### Plan Slides
+POST http://localhost:3000/api/plan-slides
+Content-Type: application/json
+
+{
+  "text": "This is a test article about Docker. Docker is a containerization platform. It uses images and containers.",
+  "tone": "Educational",
+  "slideCount": "auto"
+}
+
+###
+
+### Fill Visual Data
+POST http://localhost:3000/api/fill-visual-data
+Content-Type: application/json
+
+{
+  "visualType": "step-chain",
+  "title": "How Docker works",
+  "body": "First you build an image. Then you run a container."
+}
+
+###
+
+### Regenerate Block
+POST http://localhost:3000/api/regenerate-block
+Content-Type: application/json
+
+{
+  "block": {
+    "type": "CONTENT",
+    "title": "Old Title",
+    "body": "Old body content.",
+    "order": 1
+  },
+  "instruction": "Make it more exciting"
+}
