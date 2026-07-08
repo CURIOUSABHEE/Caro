@@ -58,6 +58,7 @@ export const RenderSlideSchema = z.object({
   type: z.enum(["COVER", "CONTENT", "CLOSING"]),
   title: z.string(),
   body: z.string(),
+  order: z.number().optional(),
   themeName: z.string().default("monochrome"),
   username: z.string().default(""),
   imageUrl: z.string().nullable().optional(),

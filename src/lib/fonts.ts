@@ -1,4 +1,5 @@
 import { Buffer } from "buffer";
+import axios from "axios";
 
 // In-memory cache for font buffers to speed up rendering
 const fontCache: Record<string, ArrayBuffer> = {};
@@ -35,14 +36,10 @@ export async function loadFont(name: keyof typeof FONT_URLS): Promise<ArrayBuffe
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
-      const response = await fetch(url, { signal: controller.signal });
+      const response = await axios.get(url, { signal: controller.signal, responseType: "arraybuffer" });
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch font. Status: ${response.status}`);
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
+      const arrayBuffer = response.data;
       fontCache[name] = arrayBuffer;
       console.log(`[FontLoader] Successfully loaded font ${name}`);
       return arrayBuffer;

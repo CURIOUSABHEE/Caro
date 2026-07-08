@@ -1,3 +1,4 @@
+import axios from "axios";
 import { parseHTML } from "linkedom";
 import { Readability } from "@mozilla/readability";
 
@@ -14,26 +15,23 @@ export async function extractArticle(url: string): Promise<ExtractedArticle> {
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
   try {
-    const res = await fetch(url, {
+    const res = await axios.get(url, {
       signal: controller.signal,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       },
+      responseType: "text"
     });
 
     clearTimeout(timeoutId);
 
-    if (!res.ok) {
-      throw new Error(`HTTP Error: Failed to fetch URL. Status: ${res.status} ${res.statusText}`);
-    }
-
-    const contentType = res.headers.get("content-type") || "";
+    const contentType = String(res.headers["content-type"] || "");
     if (!contentType.includes("text/html")) {
       throw new Error("Invalid content type. Expected HTML content.");
     }
 
-    const html = await res.text();
+    const html = res.data;
 
     if (!html || html.trim().length === 0) {
       throw new Error("Received empty HTML content from the page.");

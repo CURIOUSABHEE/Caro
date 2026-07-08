@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Stage, Layer, Rect, Text as KonvaText, Image as KonvaImage, Transformer, Group } from "react-konva";
+import type Konva from "konva";
 import {
   X, Trash2, ImageIcon, TypeIcon, AlignLeft, AlignCenter, AlignRight, Bold, Italic,
   ChevronDown, GripHorizontal, ZoomIn, ZoomOut, Move, RotateCcw, Plus, Minus,
@@ -89,7 +90,7 @@ function ImageElementComponent({ el, onSelect, onChange }: {
   onSelect: () => void;
   onChange: (updates: Partial<CanvasElement>) => void;
 }) {
-  const shapeRef = useRef<any>(null);
+  const shapeRef = useRef<Konva.Image>(null);
   const imageObj = useLoadedImage(el.src);
 
   return (
@@ -135,7 +136,7 @@ function TextElementComponent({ el, onSelect, onChange, isEditing }: {
   onChange: (updates: Partial<CanvasElement>) => void;
   isEditing: boolean;
 }) {
-  const shapeRef = useRef<any>(null);
+  const shapeRef = useRef<Konva.Text>(null);
 
   return (
     <KonvaText
@@ -180,8 +181,8 @@ export default function CanvasEditor({ initialElements, onSave, onClose, bgImage
   const [elements, setElements, undo, redo, canUndo, canRedo] = useHistory<CanvasElement[]>(initialElements);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   
-  const stageRef = useRef<any>(null);
-  const trRef = useRef<any>(null);
+  const stageRef = useRef<Konva.Stage>(null);
+  const trRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [stageScale, setStageScale] = useState(0.5);
@@ -221,7 +222,7 @@ export default function CanvasEditor({ initialElements, onSave, onClose, bgImage
   }, [fitToScreen]);
 
   // Handle zooming
-  const handleWheel = (e: any) => {
+  const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     if (!e || !e.evt) return;
     e.evt.preventDefault();
     if (isTextEditing) return; // Prevent zooming while typing
@@ -360,14 +361,14 @@ export default function CanvasEditor({ initialElements, onSave, onClose, bgImage
     trRef.current.getLayer?.()?.batchDraw();
   }, [selectedId, elements, isTextEditing]);
 
-  const handleStageClick = useCallback((e: any) => {
+  const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (e.target === e.target.getStage()) {
       setSelectedId(null);
       if (isTextEditing) commitTextEdit();
     }
   }, [isTextEditing]); // eslint-disable-line
 
-  const handleDoubleClick = useCallback((e: any) => {
+  const handleDoubleClick = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const target = e.target;
     if (!target) return;
     const id = target.id();
@@ -461,7 +462,7 @@ export default function CanvasEditor({ initialElements, onSave, onClose, bgImage
     // Wait a tick for UI to update
     setTimeout(() => {
       try {
-        const dataUrl = stageRef.current.toDataURL({ pixelRatio: 2 });
+        const dataUrl = (stageRef.current?.toDataURL({ pixelRatio: 2 }) || "");
         onSave(elements, dataUrl);
       } catch (err) {
         console.error("Failed to export canvas:", err);
@@ -851,7 +852,7 @@ export default function CanvasEditor({ initialElements, onSave, onClose, bgImage
               ))}
               <Transformer
                 ref={trRef}
-                boundBoxFunc={(oldBox: any, newBox: any) => {
+                boundBoxFunc={(oldBox: { x: number; y: number; width: number; height: number; rotation: number }, newBox: { x: number; y: number; width: number; height: number; rotation: number }) => {
                   if (newBox.width < 10 || newBox.height < 10) return oldBox;
                   return newBox;
                 }}

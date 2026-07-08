@@ -1,13 +1,8 @@
 import Groq from "groq-sdk";
 
-export interface SlideBlock {
-  type: "COVER" | "CONTENT" | "CLOSING";
-  title: string;
-  body: string;
-  order: number;
-  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat";
-  visualData?: any;
-}
+import type { Slide, VisualData, VisualType } from "@/lib/types";
+
+export type SlideBlock = Slide;
 
 function getGroqClient(): Groq {
   const apiKey = process.env.GROQ_API_KEY;
@@ -42,6 +37,11 @@ function sanitizeJsonString(raw: string): string {
 // Remove trailing commas before ] or } (common LLM artifact)
 function removeTrailingCommas(s: string): string {
   return s.replace(/,(\s*[\]}])/g, "$1");
+}
+
+// Type guard for objects
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 // Parse LLM JSON output with multiple recovery strategies
@@ -184,32 +184,34 @@ Use only standard ASCII characters in JSON values.`;
       throw new Error("Received empty response from Groq API.");
     }
 
-    const parsed = tryParseJson(content) as Record<string, unknown>;
+    const parsed = tryParseJson(content);
 
-    if (!parsed.slides || !Array.isArray(parsed.slides)) {
+    if (!isRecord(parsed) || !Array.isArray(parsed.slides)) {
       throw new Error("Invalid response format: 'slides' array not found in JSON response.");
     }
 
-    return parsed.slides.map((s: any, idx: number) => {
+    return parsed.slides.map((sRaw: unknown, idx: number) => {
+      if (!isRecord(sRaw)) throw new Error(`Invalid slide format at index ${idx}`);
+      const s = sRaw as Record<string, unknown>;
       const vType = s.type === "COVER" || s.type === "CLOSING" ? "text-only" : (s.visualType || "text-only");
       let vData = s.visualData || {};
       if (vType === "code-block") {
-        if (vData && Array.isArray(vData.highlightLines) && vData.highlightLines.length > 3) {
+        if (isRecord(vData) && Array.isArray(vData.highlightLines) && vData.highlightLines.length > 3) {
           vData = { ...vData, highlightLines: vData.highlightLines.slice(0, 3) };
         }
       }
       return {
         type: s.type === "COVER" || s.type === "CLOSING" ? s.type : "CONTENT",
-        title: s.title || "Untitled Slide",
-        body: s.body || "",
+        title: typeof s.title === "string" ? s.title : "Untitled Slide",
+        body: typeof s.body === "string" ? s.body : "",
         order: typeof s.order === "number" ? s.order : idx,
-        visualType: vType,
-        visualData: vData,
-      };
+        visualType: vType as VisualType,
+        visualData: vData as VisualData,
+      } as SlideBlock;
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[GroqService] Failed to plan slides:", error);
-    throw new Error(error.message || "Failed to generate slide plan using Groq.");
+    throw new Error(error instanceof Error ? error.message : "Failed to generate slide plan using Groq.");
   }
 }
 
@@ -259,16 +261,20 @@ CRITICAL RULES:
       throw new Error("Received empty response from Groq API during block regeneration.");
     }
 
-    const parsed = tryParseJson(content) as Record<string, unknown>;
+    const parsed = tryParseJson(content);
+    
+    if (!isRecord(parsed)) throw new Error("Invalid response format.");
 
     return {
       type: parsed.type === "COVER" || parsed.type === "CLOSING" ? parsed.type : "CONTENT",
-      title: parsed.title || block.title,
-      body: parsed.body || block.body,
-    };
-  } catch (error: any) {
+      title: typeof parsed.title === "string" ? parsed.title : block.title,
+      body: typeof parsed.body === "string" ? parsed.body : block.body,
+      visualType: (block as any).visualType,
+      visualData: (block as any).visualData
+    } as any;
+  } catch (error: unknown) {
     console.error("[GroqService] Failed to regenerate block:", error);
-    throw new Error(error.message || "Failed to regenerate block using Groq.");
+    throw new Error(error instanceof Error ? error.message : "Failed to regenerate block using Groq.");
   }
 }
 
@@ -276,7 +282,7 @@ export async function fillVisualData(
   visualType: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table",
   title: string,
   body: string
-): Promise<any> {
+): Promise<VisualData | Record<string, unknown>> {
   if (visualType === "text-only" || visualType === "code-block") {
     return {};
   }
@@ -329,11 +335,15 @@ CRITICAL RULES:
     }
 
     try {
-      return tryParseJson(content);
+      const parsed = tryParseJson(content);
+      if (isRecord(parsed)) {
+        return parsed as VisualData | Record<string, unknown>;
+      }
+      return {};
     } catch {
       return {};
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[GroqService] Failed to fill visual data:", error);
     return {};
   }

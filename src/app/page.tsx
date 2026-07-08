@@ -1,5 +1,6 @@
 "use client";
 
+import axios from "axios";
 import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
@@ -7,6 +8,7 @@ import type { CanvasElement } from "@/components/CanvasEditor";
 import { StageErrorBoundary } from "@/components/StageErrorBoundary";
 
 const CanvasEditor = dynamic(() => import("@/components/CanvasEditor"), { ssr: false });
+import type { VisualType, VisualData } from "@/lib/types";
 
 import {
   Sparkles,
@@ -57,8 +59,8 @@ interface Slide {
   imageUrl?: string | null;
   imageLayout?: "background" | "inline";
   shapes?: Shape[];
-  visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table";
-  visualData?: any;
+  visualType?: VisualType;
+  visualData?: VisualData | Record<string, unknown>;
   elements?: CanvasElement[];
   manuallyEdited?: boolean;
   canvasPngUrl?: string;
@@ -234,27 +236,22 @@ export default function Home() {
       const upgradePreview = async () => {
         try {
           const s = slides[0];
-          const res = await fetch("/api/render", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              slides: [{
-                type: s.type,
-                title: s.userTitle,
-                body: s.userBody,
-                imageUrl: s.imageUrl || null,
-                imageLayout: s.imageLayout || "inline",
-                visualType: s.visualType || "text-only",
-                visualData: s.visualData || null,
-                paletteOverride,
-              }],
-              themeName,
-              username,
-              websiteUrl,
-            })
+          const { data } = await axios.post("/api/render", {
+            slides: [{
+              type: s.type,
+              title: s.userTitle,
+              body: s.userBody,
+              imageUrl: s.imageUrl || null,
+              imageLayout: s.imageLayout || "inline",
+              visualType: s.visualType || "text-only",
+              visualData: s.visualData || undefined,
+              paletteOverride,
+            }],
+            themeName,
+            username,
+            websiteUrl,
           });
-          if (res.ok && active) {
-            const data = await res.json();
+          if (active) {
             if (data.success && data.images.length > 0) {
               setThemePreviewUri(data.images[0]);
             }
@@ -365,21 +362,15 @@ export default function Home() {
         ? `https://freedium-mirror.cfd/${url}`
         : url;
 
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: extractUrl })
-      });
-      
-      const result = await res.json();
+      const { data: result } = await axios.post("/api/extract", { url: extractUrl });
       if (!result.success) {
         throw new Error(result.error || "Failed to extract blog text.");
       }
 
       setExtractedData(result.data);
       setShowExtractedPreview(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to connect to the scraping API.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to connect to the scraping API.");
     } finally {
       setIsExtracting(false);
     }
@@ -394,23 +385,17 @@ export default function Home() {
     setIsPlanning(true);
 
     try {
-      const res = await fetch("/api/plan-slides", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: extractedData.content,
-          tone: preferences.tone,
-          focus: preferences.focus,
-          slideCount: preferences.slideCount
-        })
+      const { data: result } = await axios.post("/api/plan-slides", {
+        text: extractedData.content,
+        tone: preferences.tone,
+        focus: preferences.focus,
+        slideCount: preferences.slideCount
       });
-
-      const result = await res.json();
       if (!result.success) {
         throw new Error(result.error || "Failed to plan slides.");
       }
 
-      const formatted: Slide[] = result.data.slides.map((s: any, idx: number) => {
+      const formatted: Slide[] = result.data.slides.map((s: { type: string; title: string; body: string; visualType?: VisualType; visualData?: VisualData }, idx: number) => {
         const vType = s.type === "COVER" || s.type === "CLOSING" ? "text-only" : (s.visualType || "text-only");
         return {
           id: `slide_${Math.random().toString(36).substr(2, 9)}`,
@@ -424,7 +409,7 @@ export default function Home() {
           isEdited: false,
           shapes: [],
           visualType: vType,
-          visualData: s.visualData || null
+          visualData: s.visualData || undefined
         };
       });
 
@@ -433,8 +418,8 @@ export default function Home() {
       setMaxUnlockedStep(nextStep);
       saveDraftLocally(formatted, nextStep);
       setStep(2);
-    } catch (err: any) {
-      setError(err.message || "Failed to plan slides with AI.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to plan slides with AI.");
     } finally {
       setIsPlanning(false);
     }
@@ -445,7 +430,7 @@ export default function Home() {
     updated[index].visualType = newVisualType;
     
     if (newVisualType === "text-only" || !newVisualType) {
-      updated[index].visualData = null;
+      updated[index].visualData = undefined;
       setSlides(updated);
       saveDraftLocally(updated);
       return;
@@ -456,24 +441,19 @@ export default function Home() {
     setSlides([...updated]);
 
     try {
-      const res = await fetch("/api/fill-visual-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          visualType: newVisualType,
-          title: updated[index].userTitle,
-          body: updated[index].userBody,
-        }),
+      const { data: result } = await axios.post("/api/fill-visual-data", {
+        visualType: newVisualType,
+        title: updated[index].userTitle,
+        body: updated[index].userBody,
       });
-      const result = await res.json();
       if (result.success) {
         updated[index].visualData = result.data.visualData;
       } else {
-        updated[index].visualData = null;
+        updated[index].visualData = undefined;
       }
     } catch (err) {
       console.error("Failed to change visual type:", err);
-      updated[index].visualData = null;
+      updated[index].visualData = undefined;
       setError("Failed to generate visual data for this slide. Try again.");
     }
     setSlides(updated);
@@ -522,22 +502,16 @@ export default function Home() {
     setError(null);
 
     try {
-      const res = await fetch("/api/regenerate-block", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          block: {
-            type: target.type,
-            title: target.userTitle,
-            body: target.userBody,
-            order: target.order
-          },
-          instruction,
-          originalText: extractedData?.content
-        })
+      const { data: result } = await axios.post("/api/regenerate-block", {
+        block: {
+          type: target.type,
+          title: target.userTitle,
+          body: target.userBody,
+          order: target.order
+        },
+        instruction,
+        originalText: extractedData?.content
       });
-
-      const result = await res.json();
       if (!result.success) throw new Error(result.error);
 
       const updated = [...slides];
@@ -552,8 +526,8 @@ export default function Home() {
 
       setSlides(updated);
       saveDraftLocally(updated);
-    } catch (err: any) {
-      setError(err.message || "Failed to regenerate slide block.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to regenerate slide block.");
     } finally {
       setIsRegenerating(prev => ({ ...prev, [targetId]: false }));
     }
@@ -645,7 +619,7 @@ export default function Home() {
       imageLayout: s.imageLayout || "inline",
       shapes: s.shapes || [],
       visualType: s.visualType || "text-only",
-      visualData: s.visualData || null
+      visualData: s.visualData || undefined
     })),
     username,
     websiteUrl,
@@ -678,31 +652,25 @@ export default function Home() {
         imageLayout: s.imageLayout || "inline",
         shapes: s.shapes || [],
         visualType: s.visualType || "text-only",
-        visualData: s.visualData || null,
+        visualData: s.visualData || undefined,
         paletteOverride: palette,
       }));
 
       let apiResults: string[] = [];
       if (aiSlides.length > 0) {
-        const res = await fetch("/api/render", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slides: aiSlides,
-            themeName: theme,
-            username,
-            websiteUrl,
-            scribble,
-          })
+        const { data: result } = await axios.post("/api/render", {
+          slides: aiSlides,
+          themeName: theme,
+          username,
+          websiteUrl,
+          scribble,
         });
-
-        const result = await res.json();
         if (!result.success) throw new Error(result.error);
         apiResults = result.data.images;
 
         // Warn about per-slide render failures without throwing
         if (result.data.errors?.length) {
-          const failedSlides = result.data.errors.map((e: any) => `#${e.index + 1}`).join(", ");
+          const failedSlides = result.data.errors.map((e: { index: number; error: string }) => `#${e.index + 1}`).join(", ");
           console.warn("[Render] Per-slide failures:", result.data.errors);
           setError(`Slides ${failedSlides} failed to render and will show a placeholder. Try regenerating those slides.`);
         }
@@ -725,8 +693,8 @@ export default function Home() {
       }
 
       return renderedList;
-    } catch (err: any) {
-      setError(err.message || `Failed to render "${theme}" theme.`);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || `Failed to render "${theme}" theme.`);
       return null;
     } finally {
       setThemeLoadingStates(prev => ({ ...prev, [theme]: false }));
@@ -745,13 +713,13 @@ export default function Home() {
       if (images) {
         setRenderedImages(images);
         const initialExport: Record<number, boolean> = {};
-        images.forEach((_: any, idx: number) => {
+        images.forEach((_: unknown, idx: number) => {
           initialExport[idx] = true;
         });
         setSelectedForExport(initialExport);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to render carousel slide previews.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to render carousel slide previews.");
     } finally {
       setIsRendering(false);
     }
@@ -985,12 +953,7 @@ export default function Home() {
         scribble: false,
         backgroundOnly: true,
       };
-      const res = await fetch("/api/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
+      const { data: json } = await axios.post("/api/render", payload);
       if (json.success && json.data?.images?.[0]) {
         setCanvasBgImage(json.data.images[0]);
       }
@@ -1047,23 +1010,17 @@ export default function Home() {
     setError(null);
 
     try {
-      const res = await fetch("/api/plan-slides", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: extractedData.content,
-          tone: preferences.tone,
-          focus: preferences.focus,
-          slideCount: preferences.slideCount
-        })
+      const { data: result } = await axios.post("/api/plan-slides", {
+        text: extractedData.content,
+        tone: preferences.tone,
+        focus: preferences.focus,
+        slideCount: preferences.slideCount
       });
-
-      const result = await res.json();
       if (!result.success) {
         throw new Error(result.error || "Failed to regenerate slides.");
       }
 
-      const formatted: Slide[] = result.data.slides.map((s: any, idx: number) => {
+      const formatted: Slide[] = result.data.slides.map((s: { type: string; title: string; body: string; visualType?: VisualType; visualData?: VisualData }, idx: number) => {
         const vType = s.type === "COVER" || s.type === "CLOSING" ? "text-only" : (s.visualType || "text-only");
         return {
           id: `slide_${Math.random().toString(36).substr(2, 9)}`,
@@ -1077,14 +1034,14 @@ export default function Home() {
           isEdited: false,
           shapes: [],
           visualType: vType,
-          visualData: s.visualData || null
+          visualData: s.visualData || undefined
         };
       });
 
       setSlides(formatted);
       saveDraftLocally(formatted);
-    } catch (err: any) {
-      setError(err.message || "Failed to regenerate all slides.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to regenerate all slides.");
     } finally {
       setIsRegeneratingAll(false);
     }
@@ -1138,16 +1095,10 @@ export default function Home() {
         document.body.removeChild(a);
       } else {
         // Zip download for multiple images
-        const res = await fetch("/api/export-zip", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ images: payloadImages })
-        });
-
-        if (!res.ok) throw new Error("Failed to compile ZIP archive.");
+        const res = await axios.post("/api/export-zip", { images: payloadImages }, { responseType: "blob" });
 
         const baseName = extractedData?.title ? sanitizeFilename(extractedData.title) : "carousel-export";
-        const blob = await res.blob();
+        const blob = res.data;
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -1157,8 +1108,8 @@ export default function Home() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to download export.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to download export.");
     } finally {
       setIsExporting(false);
     }
@@ -1197,8 +1148,8 @@ export default function Home() {
 
       const baseName = extractedData?.title ? sanitizeFilename(extractedData.title) : "carousel-export";
       doc.save(`${baseName}.pdf`);
-    } catch (err: any) {
-      setError(err.message || "Failed to export PDF.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to export PDF.");
     } finally {
       setIsExporting(false);
     }
@@ -1259,11 +1210,11 @@ export default function Home() {
     saveDraftLocally(updated);
   };
 
-  const updateShapeProp = (
+  const updateShapeProp = <K extends keyof Shape>(
     baseIndex: number,
     shapeId: string,
-    key: keyof Shape,
-    value: any
+    key: K,
+    value: Shape[K]
   ) => {
     const updated = [...slides];
     const shapesList = updated[baseIndex].shapes || [];
@@ -1713,7 +1664,7 @@ export default function Home() {
                           value={s.type}
                           onChange={(e) => {
                             const updated = [...slides];
-                            updated[idx].type = e.target.value as any;
+                            updated[idx].type = e.target.value as "COVER" | "CONTENT" | "CLOSING";
                             setSlides(updated);
                             saveDraftLocally(updated);
                           }}
@@ -1729,7 +1680,7 @@ export default function Home() {
                             <span className="text-[10px] uppercase tracking-wider font-extrabold text-neutral-400">Visual:</span>
                             <select
                               value={s.visualType || "text-only"}
-                              onChange={(e) => handleVisualTypeChange(idx, e.target.value as any)}
+                              onChange={(e) => handleVisualTypeChange(idx, e.target.value as VisualType)}
                               className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 focus:outline-none"
                             >
                               <option value="text-only">Text Only</option>
@@ -1742,7 +1693,7 @@ export default function Home() {
                               <option value="icon-grid">Icon Grid</option>
                               <option value="table">Comparison Table</option>
                             </select>
-                            {s.visualData?.loading && (
+                            {Boolean((s.visualData as Record<string, unknown>)?.loading) && (
                               <span className="text-[10px] text-neutral-500 font-bold animate-pulse flex items-center gap-1">
                                 <RefreshCw className="h-2.5 w-2.5 animate-spin text-blue-500" />
                                 Extracting...
@@ -2266,7 +2217,7 @@ export default function Home() {
                   </div>
                   
                   <p className="text-[11px] text-neutral-400 text-center font-medium leading-relaxed">
-                    Preview of the selected theme's visual style. Click "Render Carousel" below to generate your full carousel.
+                    Preview of the selected theme&apos;s visual style. Click &quot;Render Carousel&quot; below to generate your full carousel.
                   </p>
                 </div>
               </div>

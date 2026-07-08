@@ -1,5 +1,18 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { CodeBlock } from "./CodeBlock";
+import type {
+  VisualData,
+  ThemeColors,
+  StepChainData,
+  VennData,
+  WheelData,
+  ConcentricData,
+  IconGridData,
+  QuoteData,
+  StatData,
+  TableData,
+  CodeBlockData,
+} from "@/lib/types";
 
 export type SlideType = "COVER" | "CONTENT" | "CLOSING";
 
@@ -35,7 +48,7 @@ export interface RenderSlideInput {
   imageLayout?: "background" | "inline";
   shapes?: Shape[];
   visualType?: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table";
-  visualData?: any;
+  visualData?: Record<string, unknown>;
   websiteUrl?: string;
   scribble?: boolean;
   paletteOverride?: PaletteOverride;
@@ -54,22 +67,22 @@ export function sanitizeTextForSatori(text: string): string {
 }
 
 // Recursively walks through visual data object to sanitize all string values
-export function sanitizeObjectStrings(obj: any): any {
+export function sanitizeObjectStrings<T>(obj: T): T {
   if (!obj) return obj;
   if (typeof obj === "string") {
-    return sanitizeTextForSatori(obj);
+    return sanitizeTextForSatori(obj) as unknown as T;
   }
   if (Array.isArray(obj)) {
-    return obj.map(sanitizeObjectStrings);
+    return obj.map((item) => sanitizeObjectStrings(item)) as unknown as T;
   }
   if (typeof obj === "object") {
-    const res: any = {};
+    const res: Record<string, unknown> = {};
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        res[key] = sanitizeObjectStrings(obj[key]);
+        res[key] = sanitizeObjectStrings((obj as Record<string, unknown>)[key]);
       }
     }
-    return res;
+    return res as unknown as T;
   }
   return obj;
 }
@@ -384,14 +397,14 @@ const renderIcon = (name: string, color: string) => {
   return null;
 };
 
-const StepChain = ({ data, colors }: { data: any; colors: any }) => {
+const StepChain = ({ data, colors }: { data: StepChainData; colors: ThemeColors }) => {
   const steps = data?.steps || [];
   if (!Array.isArray(steps) || steps.length === 0) return null;
   const visibleSteps = steps.slice(0, 4);
   const cardBorderRadius = colors?.cardBorderRadius || "16px";
   return (
     <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", padding: "20px 0", position: "relative" }}>
-      {visibleSteps.map((step: any, idx: number) => (
+      {visibleSteps.map((step, idx) => (
         <div key={idx} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", flex: 1, position: "relative", marginRight: idx < visibleSteps.length - 1 ? "32px" : "0" }}>
           {/* Card */}
           <div
@@ -426,7 +439,7 @@ const StepChain = ({ data, colors }: { data: any; colors: any }) => {
                 color: colors.accent === "#ffffff" ? "#050505" : "#ffffff",
                 fontSize: "20px",
                 fontWeight: "bold",
-                border: `3px solid ${colors.accent === "#ffffff" ? "#050505" : (colors.background?.color || "#ffffff")}`,
+                border: `3px solid ${colors.accent === "#ffffff" ? "#050505" : (colors.background || "#ffffff")}`,
                 boxSizing: "border-box",
               }}
             >
@@ -454,7 +467,7 @@ const StepChain = ({ data, colors }: { data: any; colors: any }) => {
   );
 };
 
-const Venn = ({ data, colors }: { data: any; colors: any }) => {
+const Venn = ({ data, colors }: { data: VennData; colors: ThemeColors }) => {
   if (!data?.leftLabel && !data?.rightLabel && !data?.overlapLabel) return null;
   const leftLabel = data?.leftLabel || "Concept A";
   const rightLabel = data?.rightLabel || "Concept B";
@@ -510,7 +523,7 @@ const Venn = ({ data, colors }: { data: any; colors: any }) => {
   );
 };
 
-const Wheel = ({ data, colors }: { data: any; colors: any }) => {
+const Wheel = ({ data, colors }: { data: WheelData; colors: ThemeColors }) => {
   if (!data?.centerLabel && (!data?.spokes || data.spokes.length === 0)) return null;
   const centerLabel = data?.centerLabel || "Core";
   const spokes = (data?.spokes || []).slice(0, 6);
@@ -529,7 +542,7 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
   return (
     <div style={{ display: "flex", width: "600px", height: "360px", position: "relative", justifyContent: "center", alignItems: "center" }}>
       <svg width="600" height="360" viewBox="0 0 600 360" fill="none" style={{ position: "absolute", top: 0, left: 0 }}>
-        {spokes.map((_: any, idx: number) => {
+        {spokes.map((_, idx) => {
           const angle = startAngle + idx * angleStep;
           const startR = 60;
           const endR = spokeRadius - 45;
@@ -553,7 +566,7 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
               height: "116px",
               borderRadius: "50%",
               border: `4px solid ${colors.accent}`,
-              ...(colors.accentBg ? { background: colors.accentBg } : { backgroundColor: colors.background?.color || (isDark ? "#050505" : "#ffffff") }),
+              ...(colors.accentBg ? { background: colors.accentBg } : { backgroundColor: colors.background || (isDark ? "#050505" : "#ffffff") }),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -565,7 +578,7 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
       </div>
 
       {/* Dynamic spoke label cards — positioned at the spoke endpoint */}
-      {spokes.map((spoke: any, idx: number) => {
+      {spokes.map((spoke, idx) => {
         const angle = startAngle + idx * angleStep;
         const ex = cx + Math.cos(angle) * spokeRadius;
         const ey = cy + Math.sin(angle) * spokeRadius;
@@ -605,11 +618,11 @@ const Wheel = ({ data, colors }: { data: any; colors: any }) => {
   );
 };
 
-const Concentric = ({ data, colors }: { data: any; colors: any }) => {
+const Concentric = ({ data, colors }: { data: ConcentricData; colors: ThemeColors }) => {
   const rings = data?.rings || [];
   if (!Array.isArray(rings) || rings.length === 0) return null;
 
-  const sortedRings = [...rings].sort((a: any, b: any) => a.depth - b.depth);
+  const sortedRings = [...rings].sort((a, b) => a.depth - b.depth);
   const cx = 300;
   const cy = 180;
   // Radii for inner / middle / outer rings
@@ -635,7 +648,7 @@ const Concentric = ({ data, colors }: { data: any; colors: any }) => {
         <circle cx={cx} cy={cy} r={radii[0]} fill={colors.accent} fillOpacity="0.22" stroke={colors.accent} strokeWidth="4" />
 
         {/* Tick connectors — strictly horizontal lines from the circle edge at labelY to the label */}
-        {sortedRings.slice(0, 3).map((_: any, i: number) => {
+        {sortedRings.slice(0, 3).map((_, i) => {
           const rc = ringConfigs[i];
           const dy = rc.labelY - cy;
           const dx = Math.sqrt(Math.max(0, rc.r * rc.r - dy * dy));
@@ -647,7 +660,7 @@ const Concentric = ({ data, colors }: { data: any; colors: any }) => {
       </svg>
 
       {/* Ring labels — positioned at the right edge of each ring */}
-      {sortedRings.slice(0, 3).map((ring: any, i: number) => {
+      {sortedRings.slice(0, 3).map((ring, i) => {
         const rc = ringConfigs[i];
         const isInner = i === 0;
         return (
@@ -683,7 +696,7 @@ const Concentric = ({ data, colors }: { data: any; colors: any }) => {
   );
 };
 
-const IconGrid = ({ data, colors }: { data: any; colors: any }) => {
+const IconGrid = ({ data, colors }: { data: IconGridData; colors: ThemeColors }) => {
   const items = data?.items || [];
   if (!Array.isArray(items) || items.length === 0) return null;
   const visibleItems = items.slice(0, 6); // Support up to 6 items
@@ -697,7 +710,7 @@ const IconGrid = ({ data, colors }: { data: any; colors: any }) => {
   const cardBorderRadius = colors?.cardBorderRadius || "18px";
   return (
     <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", width: "100%", padding: "10px 0" }}>
-      {visibleItems.map((item: any, idx: number) => (
+      {visibleItems.map((item, idx) => (
         <div
           key={idx}
           style={{
@@ -754,12 +767,12 @@ const IconGrid = ({ data, colors }: { data: any; colors: any }) => {
 };
 
 // --- QuoteBlock (large stylized pull-quote) ---
-const QuoteBlock = ({ data, colors }: { data: any; colors: any }) => {
+const QuoteBlock = ({ data, colors }: { data: QuoteData; colors: ThemeColors }) => {
   if (!data?.quote) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "30px 20px", position: "relative" }}>
       <div style={{ position: "absolute", top: "-60px", display: "flex", justifyContent: "center", width: "100%", zIndex: 0 }}>
-        <span style={{ fontSize: "200px", lineHeight: 1, color: colors.accent, opacity: 0.12, fontFamily: "Playfair Display, serif", userSelect: "none" }}>"</span>
+        <span style={{ fontSize: "200px", lineHeight: 1, color: colors.accent, opacity: 0.12, fontFamily: "Playfair Display, serif", userSelect: "none" }}>&quot;</span>
       </div>
       <p style={{ position: "relative", zIndex: 1, fontSize: "32px", fontFamily: "Playfair Display, serif", fontStyle: "italic", lineHeight: 1.5, color: colors.text, maxWidth: "800px", margin: "0" }}>
         {data.quote}
@@ -778,7 +791,7 @@ const QuoteBlock = ({ data, colors }: { data: any; colors: any }) => {
 };
 
 // --- Stat Display (big bold number with label) ---
-const StatDisplay = ({ data, colors }: { data: any; colors: any }) => {
+const StatDisplay = ({ data, colors }: { data: StatData; colors: ThemeColors }) => {
   if (!data?.number) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, textAlign: "center", padding: "30px" }}>
@@ -800,7 +813,7 @@ const StatDisplay = ({ data, colors }: { data: any; colors: any }) => {
 };
 
 // --- Comparison Table (structured grid for side-by-side comparison) ---
-const TableBlock = ({ data, colors }: { data: any; colors: any }) => {
+const TableBlock = ({ data, colors }: { data: TableData; colors: ThemeColors }) => {
   if (!data?.headers || !data?.rows) return null;
   const numCols = data.headers.length;
   const hasRowLabels = data.rows[0]?.label;
@@ -829,7 +842,7 @@ const TableBlock = ({ data, colors }: { data: any; colors: any }) => {
           </tr>
         </thead>
         <tbody>
-          {data.rows.map((row: any, ri: number) => (
+          {data.rows.map((row, ri) => (
             <tr key={ri}>
               <td
                 style={{
@@ -844,7 +857,7 @@ const TableBlock = ({ data, colors }: { data: any; colors: any }) => {
               >
                 {row.label}
               </td>
-              {(row.values || []).map((v: string, vi: number) => (
+              {(row.values || []).map((v, vi) => (
                 <td
                   key={vi}
                   style={{
@@ -869,23 +882,24 @@ const TableBlock = ({ data, colors }: { data: any; colors: any }) => {
 
 const renderDiagram = (
   visualType: string,
-  visualData: any,
-  colors: { text: string; accent: string; muted: string; glassBg?: string; glassBorder?: string; background?: any; iconBorderRadius?: string; cardBorderRadius?: string; accentBg?: string }
+  visualData: Record<string, unknown> | undefined,
+  colors: ThemeColors
 ) => {
-  if (visualType === "step-chain") return <StepChain data={visualData} colors={colors} />;
-  if (visualType === "venn") return <Venn data={visualData} colors={colors} />;
-  if (visualType === "wheel") return <Wheel data={visualData} colors={colors} />;
-  if (visualType === "concentric") return <Concentric data={visualData} colors={colors} />;
-  if (visualType === "icon-grid") return <IconGrid data={visualData} colors={colors} />;
-  if (visualType === "quote") return <QuoteBlock data={visualData} colors={colors} />;
-  if (visualType === "stat") return <StatDisplay data={visualData} colors={colors} />;
-  if (visualType === "table") return <TableBlock data={visualData} colors={colors} />;
+  if (visualType === "step-chain") return <StepChain data={visualData as unknown as StepChainData} colors={colors} />;
+  if (visualType === "venn") return <Venn data={visualData as unknown as VennData} colors={colors} />;
+  if (visualType === "wheel") return <Wheel data={visualData as unknown as WheelData} colors={colors} />;
+  if (visualType === "concentric") return <Concentric data={visualData as unknown as ConcentricData} colors={colors} />;
+  if (visualType === "icon-grid") return <IconGrid data={visualData as unknown as IconGridData} colors={colors} />;
+  if (visualType === "quote") return <QuoteBlock data={visualData as unknown as QuoteData} colors={colors} />;
+  if (visualType === "stat") return <StatDisplay data={visualData as unknown as StatData} colors={colors} />;
+  if (visualType === "table") return <TableBlock data={visualData as unknown as TableData} colors={colors} />;
   return null;
 };
 
-const renderCodeBlock = (visualData: any, theme: "dark" | "light", variant: "default" | "macos" = "default") => {
-  if (!visualData?.code || !visualData?.tokens) return null;
-  return <CodeBlock language={visualData.language || "plaintext"} code={visualData.code} highlightLines={visualData.highlightLines || []} tokens={visualData.tokens} theme={theme} variant={variant} />;
+const renderCodeBlock = (visualData: Record<string, unknown> | undefined, theme: "dark" | "light", variant: "default" | "macos" = "default") => {
+  const data = visualData as unknown as CodeBlockData | undefined;
+  if (!data?.code || !data?.tokens) return null;
+  return <CodeBlock language={data.language || "plaintext"} code={data.code} highlightLines={data.highlightLines || []} tokens={data.tokens} theme={theme} variant={variant} />;
 };
 
 // Parses asterisk emphasis wrapped in *text* to render formatted Playfair Display Italic inline
@@ -2056,7 +2070,7 @@ export function renderThemeSlide(slide: RenderSlideInput): React.ReactElement {
                     if (codeBlock) return codeBlock;
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text: lrText, accent: lrAccent, muted: lrMuted, glassBg: "rgba(197, 86, 60, 0.03)", glassBorder: "rgba(197, 86, 60, 0.06)", background: { color: lrBg } });
+                    const diagram = renderDiagram(visualType, visualData, { text: lrText, accent: lrAccent, muted: lrMuted, glassBg: "rgba(197, 86, 60, 0.03)", glassBorder: "rgba(197, 86, 60, 0.06)", background: lrBg });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
@@ -2926,7 +2940,7 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
                     );
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: glassFill, glassBorder: glassBorder, accentBg: accentBg, diagramStyle: "liquid-glass" } as any);
+                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: glassFill, glassBorder: glassBorder, accentBg: accentBg, diagramStyle: "liquid-glass" });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
@@ -3106,7 +3120,7 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
                       );
                     }
                     if (visualType && visualType !== "text-only") {
-                      const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: "transparent", glassBorder: "#000", accentBg: text } as any);
+                      const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: "transparent", glassBorder: "#000", accentBg: text });
                       if (diagram) {
                         return (
                           <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
@@ -3311,7 +3325,7 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
                     );
                   }
                   if (visualType && visualType !== "text-only") {
-                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: "transparent", glassBorder: gridLineStrong, accentBg: accent, cardShadow: cardShadow } as any);
+                    const diagram = renderDiagram(visualType, visualData, { text, accent, muted: mutedText, glassBg: "transparent", glassBorder: gridLineStrong, accentBg: accent, cardShadow: cardShadow });
                     if (diagram) {
                       return (
                         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
