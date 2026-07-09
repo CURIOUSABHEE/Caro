@@ -1,6 +1,27 @@
 import type { TokenizedLine } from "@/lib/tokenize-code";
+import type { PaletteOverride } from "@/lib/themes";
 
-export type VisualType = "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table" | "image-grid";
+export const VISUAL_TYPES = [
+  "step-chain",
+  "venn",
+  "wheel",
+  "concentric",
+  "icon-grid",
+  "code-block",
+  "text-only",
+  "quote",
+  "stat",
+  "table",
+  "flowchart",
+  "timeline",
+  "before-after",
+  "image-grid",
+  "architecture",
+  "sequence",
+  "mini-chart",
+] as const;
+
+export type VisualType = (typeof VISUAL_TYPES)[number];
 
 export interface StepChainData {
   steps?: { number: number; label: string; description: string }[];
@@ -51,6 +72,39 @@ export interface CodeBlockData {
   tokens?: TokenizedLine[];
 }
 
+export interface FlowchartData {
+  nodes?: { label: string; shape: "start" | "process" | "decision" | "end" }[];
+}
+
+export interface TimelineData {
+  events?: { date: string; title: string; description?: string }[];
+}
+
+export interface BeforeAfterData {
+  beforeTitle?: string;
+  afterTitle?: string;
+  beforeItems?: string[];
+  afterItems?: string[];
+}
+
+export interface ImageGridData {
+  items?: { label: string; description?: string }[];
+}
+
+export interface ArchitectureData {
+  layers?: { label: string; items: string[] }[];
+}
+
+export interface SequenceData {
+  participants?: string[];
+  steps?: { from: number; to: number; label: string }[];
+}
+
+export interface MiniChartData {
+  title?: string;
+  bars?: { label: string; value: number; displayValue?: string }[];
+}
+
 // Discriminant union for VisualData
 export type VisualData =
   | { visualType: "step-chain"; visualData: StepChainData }
@@ -62,7 +116,14 @@ export type VisualData =
   | { visualType: "stat"; visualData: StatData }
   | { visualType: "table"; visualData: TableData }
   | { visualType: "code-block"; visualData: CodeBlockData }
-  | { visualType: "text-only" | "image-grid" | "cover" | "closing"; visualData?: Record<string, unknown> };
+  | { visualType: "flowchart"; visualData: FlowchartData }
+  | { visualType: "timeline"; visualData: TimelineData }
+  | { visualType: "before-after"; visualData: BeforeAfterData }
+  | { visualType: "image-grid"; visualData: ImageGridData }
+  | { visualType: "architecture"; visualData: ArchitectureData }
+  | { visualType: "sequence"; visualData: SequenceData }
+  | { visualType: "mini-chart"; visualData: MiniChartData }
+  | { visualType: "text-only" | "cover" | "closing"; visualData?: Record<string, unknown> };
 
 export type Slide = {
   type: "COVER" | "CONTENT" | "CLOSING";
@@ -75,7 +136,7 @@ export type Slide = {
   imageUrl?: string | null;
   imageLayout?: "background" | "inline";
   shapes?: any[];
-  paletteOverride?: Partial<ThemeColors>;
+  paletteOverride?: PaletteOverride;
 } & (
   | { visualType: "step-chain"; visualData: StepChainData }
   | { visualType: "venn"; visualData: VennData }
@@ -86,7 +147,14 @@ export type Slide = {
   | { visualType: "stat"; visualData: StatData }
   | { visualType: "table"; visualData: TableData }
   | { visualType: "code-block"; visualData: CodeBlockData }
-  | { visualType: "text-only" | "image-grid" | "cover" | "closing"; visualData?: Record<string, unknown> }
+  | { visualType: "flowchart"; visualData: FlowchartData }
+  | { visualType: "timeline"; visualData: TimelineData }
+  | { visualType: "before-after"; visualData: BeforeAfterData }
+  | { visualType: "image-grid"; visualData: ImageGridData }
+  | { visualType: "architecture"; visualData: ArchitectureData }
+  | { visualType: "sequence"; visualData: SequenceData }
+  | { visualType: "mini-chart"; visualData: MiniChartData }
+  | { visualType: "text-only" | "cover" | "closing"; visualData?: Record<string, unknown> }
 );
 
 export interface ThemeColors {

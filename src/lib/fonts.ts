@@ -13,6 +13,13 @@ const FONT_URLS = {
   caveatRegular: "https://cdn.jsdelivr.net/npm/@fontsource/caveat/files/caveat-latin-400-normal.woff",
   jetbrainsMonoRegular: "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff",
   jetbrainsMonoBold: "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff",
+  loraRegular: "https://cdn.jsdelivr.net/npm/@fontsource/lora/files/lora-latin-400-normal.woff",
+  loraBold: "https://cdn.jsdelivr.net/npm/@fontsource/lora/files/lora-latin-700-normal.woff",
+  jakartaRegular: "https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-400-normal.woff",
+  jakartaBold: "https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-700-normal.woff",
+  cinzelRegular: "https://cdn.jsdelivr.net/npm/@fontsource/cinzel/files/cinzel-latin-400-normal.woff",
+  cinzelBold: "https://cdn.jsdelivr.net/npm/@fontsource/cinzel/files/cinzel-latin-700-normal.woff",
+  pacificoRegular: "https://cdn.jsdelivr.net/npm/@fontsource/pacifico/files/pacifico-latin-400-normal.woff",
 };
 
 export async function loadFont(name: keyof typeof FONT_URLS): Promise<ArrayBuffer> {
@@ -67,7 +74,16 @@ export interface SatoriFont {
 
 export async function loadAllFonts(): Promise<SatoriFont[]> {
   try {
-    const [outfitReg, outfitBld, playfairReg, playfairItal, caveatReg, jbMonoReg, jbMonoBld] = await Promise.all([
+    const [
+      outfitReg, outfitBld,
+      playfairReg, playfairItal,
+      caveatReg,
+      jbMonoReg, jbMonoBld,
+      loraReg, loraBld,
+      jakartaReg, jakartaBld,
+      cinzelReg, cinzelBld,
+      pacificoReg
+    ] = await Promise.all([
       loadFont("outfitRegular"),
       loadFont("outfitBold"),
       loadFont("playfairRegular"),
@@ -75,6 +91,13 @@ export async function loadAllFonts(): Promise<SatoriFont[]> {
       loadFont("caveatRegular"),
       loadFont("jetbrainsMonoRegular"),
       loadFont("jetbrainsMonoBold"),
+      loadFont("loraRegular"),
+      loadFont("loraBold"),
+      loadFont("jakartaRegular"),
+      loadFont("jakartaBold"),
+      loadFont("cinzelRegular"),
+      loadFont("cinzelBold"),
+      loadFont("pacificoRegular"),
     ]);
 
     return [
@@ -118,6 +141,48 @@ export async function loadAllFonts(): Promise<SatoriFont[]> {
         name: "JetBrains Mono",
         data: jbMonoBld,
         weight: 700,
+        style: "normal",
+      },
+      {
+        name: "Lora",
+        data: loraReg,
+        weight: 400,
+        style: "normal",
+      },
+      {
+        name: "Lora",
+        data: loraBld,
+        weight: 700,
+        style: "normal",
+      },
+      {
+        name: "Plus Jakarta Sans",
+        data: jakartaReg,
+        weight: 400,
+        style: "normal",
+      },
+      {
+        name: "Plus Jakarta Sans",
+        data: jakartaBld,
+        weight: 700,
+        style: "normal",
+      },
+      {
+        name: "Cinzel",
+        data: cinzelReg,
+        weight: 400,
+        style: "normal",
+      },
+      {
+        name: "Cinzel",
+        data: cinzelBld,
+        weight: 700,
+        style: "normal",
+      },
+      {
+        name: "Pacifico",
+        data: pacificoReg,
+        weight: 400,
         style: "normal",
       },
     ];

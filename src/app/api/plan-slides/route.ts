@@ -18,8 +18,29 @@ export async function POST(req: Request) {
       );
     }
 
-    const { text, tone, focus, slideCount } = validation.data;
-    const slides = await planSlides(text, tone, focus, slideCount);
+    const {
+      text,
+      tone,
+      focus,
+      slideCount,
+      targetPlatform,
+      audience,
+      goal,
+      ctaStyle,
+      selectedOutline,
+    } = validation.data;
+
+    const slides = await planSlides(
+      text,
+      tone,
+      focus,
+      slideCount,
+      targetPlatform,
+      audience,
+      goal,
+      ctaStyle,
+      selectedOutline
+    );
 
     return NextResponse.json({
       success: true,

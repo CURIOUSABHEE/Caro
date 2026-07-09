@@ -104,16 +104,31 @@ function compressText(text: string, maxTokens: number): string {
 
 export async function planSlides(
   articleText: string,
-  tone: string,
+  tone: string = "professional",
   focus?: string,
-  slideCount: number | "auto" = "auto"
+  slideCount: number | "auto" = "auto",
+  targetPlatform: string = "linkedin",
+  audience: string = "founders",
+  goal: string = "teach",
+  ctaStyle: string = "soft",
+  selectedOutline?: {
+    title: string;
+    description: string;
+    slides: { title: string; type: "COVER" | "CONTENT" | "CLOSING"; visualType: VisualType }[];
+  }
 ): Promise<SlideBlock[]> {
   const groq = getGroqClient();
 
-  const countInstruction =
-    slideCount === "auto"
+  const countInstruction = selectedOutline
+    ? `Flesh out the slides in the selected outline:
+Title: ${selectedOutline.title}
+Description: ${selectedOutline.description}
+Slides: ${JSON.stringify(selectedOutline.slides)}
+
+Generate EXACTLY the same number of slides (${selectedOutline.slides.length}), in the same order. Use the exact titles and types, and for each slide, generate its detailed body copy (exactly 2-3 bullet points for CONTENT slides) and visualData (if diagram or code block) matching the outline. Do NOT change visualType. Keep order corresponding directly to the outline indices.`
+    : (slideCount === "auto"
       ? "Determine the appropriate number of slides based on the length, depth, and key arguments of the text. Use as many slides as necessary to properly explain the information in digestible chunks, up to a MAXIMUM of 15 slides."
-      : `Generate exactly ${slideCount} slides in total, including 1 COVER slide at the beginning, followed by content slides, and ending with exactly 1 CLOSING slide.`;
+      : `Generate exactly ${slideCount} slides in total, including 1 COVER slide at the beginning, followed by content slides, and ending with exactly 1 CLOSING slide.`);
 
   const systemPrompt = `You transform articles into highly modular educational slide carousels.
 
@@ -136,12 +151,48 @@ RULES:
   "quote" — testimonial/key insight. visualData: {"quote":"","attribution":"","role":""}.
   "stat" — striking statistic. visualData: {"number":"80%","label":"","context":""}.
   "table" — side-by-side comparison. visualData: {"headers":["","A","B"],"rows":[{"label":"C1","values":["",""]}]} (3-5 rows, 2-4 cols).
+  "flowchart" — branching logic, if/else paths, algorithm steps. visualData: {"nodes":[{"label":"","shape":"start|process|decision|end"}]} (3-5 nodes in flow order).
+  "timeline" — chronological events, roadmaps, history. visualData: {"events":[{"date":"2020","title":"","description":""}]} (3-5 events).
+  "before-after" — transformation, refactor, improvement. visualData: {"beforeTitle":"Before","afterTitle":"After","beforeItems":[""],"afterItems":[""]} (3-4 items each side).
+  "image-grid" — visual concepts, UI panels, screenshot descriptions. visualData: {"items":[{"label":"","description":""}]} (2-4 items).
+  "architecture" — system design, component layers. visualData: {"layers":[{"label":"Frontend","items":["React","CDN"]}]} (2-4 layers, 2-3 items each).
+  "sequence" — API/interaction flows. visualData: {"participants":["Client","API","DB"],"steps":[{"from":0,"to":1,"label":"POST /login"}]} (2-4 participants, 3-6 steps).
+  "mini-chart" — data trends, benchmarks. visualData: {"title":"Performance","bars":[{"label":"Before","value":40,"displayValue":"40ms"}]} (3-5 bars, value 0-100 scale).
 
+- VISUAL RHYTHM: Never use more than 2 consecutive "text-only" CONTENT slides. At least 50% of CONTENT slides MUST use a visual type (diagram, code-block, stat, quote, timeline, flowchart, before-after, image-grid, etc.).
+- SHOW, DON'T TELL: Match content to visuals — processes/algorithms → flowchart or step-chain; history/roadmap → timeline; transformation/refactor → before-after; UI/screens/concepts → image-grid; code → code-block; metrics → stat or mini-chart; system design → architecture; API flows → sequence; comparisons → table or venn.
 - Diagram slides (non-text-only): body MUST have exactly 2-3 bullet points (max 60 words), explaining context. Do NOT repeat diagram labels.
 - Wrap 1-2 high-impact words in title with asterisks for italic emphasis (e.g. "Optimize your *code* structure").
 
+- Platform optimization: The target platform is "${targetPlatform}".
+  * linkedin: Write highly professional, educational, thought-leadership style copy.
+  * instagram: Write short, visually scannable copy, focus on key takeaways and punchy summaries.
+  * twitter: casual/conversational, short sentences, high punchiness, maximum clarity in very few words.
+  * pitch-deck: strategic and clean, focusing on outcomes, value, metrics, and structured layouts.
+
+- Target Audience: "${audience}".
+  * founders: focus on leverage, scale, growth, business value, speed, cost efficiency.
+  * engineers: technical details, mechanics, logic, architecture, no fluff, accurate terminology.
+  * marketers: copywriting, psychological triggers, metrics, hooks, conversion, audience engagement.
+  * beginners: clean explanations, analogies, absolute simplicity, zero advanced jargon.
+  * executives: strategic alignment, macro trends, ROI, risk mitigation, high-level impact.
+
+- Content Goal: "${goal}".
+  * teach: educational explanations, tutorials, definitions, teaching concepts.
+  * sell: highlight problem, show value of solution, address friction, soft close.
+  * summarize: condense main takeaways into quick reference points.
+  * announce: hype-driven, launch feel, exciting updates, bold styling.
+  * persuade: logic-driven arguments, contrarian debate, proving a viewpoint.
+
+- CTA Style: "${ctaStyle}".
+  * soft: Warm question or open conversation starter (e.g. "What are your thoughts on this?").
+  * direct: Direct action prompt (e.g. "Save this for later" or "Follow for more").
+  * newsletter: Lead generation prompt (e.g. "Join our newsletter at our website").
+  * product: Product trial prompt (e.g. "Try the tool to build this yourself").
+  * no-cta: Do NOT include any CTA text or prompt in the closing slide body.
+
 OUTPUT JSON:
-{"slides":[{"type":"COVER"|"CONTENT"|"CLOSING","title":"headline (*word*)","body":"• bullet points","order":0,"visualType":"text-only"|"step-chain"|"venn"|"wheel"|"concentric"|"icon-grid"|"code-block"|"quote"|"stat"|"table","visualData":{}}]}
+{"slides":[{"type":"COVER"|"CONTENT"|"CLOSING","title":"headline (*word*)","body":"• bullet points","order":0,"visualType":"text-only"|"step-chain"|"venn"|"wheel"|"concentric"|"icon-grid"|"code-block"|"quote"|"stat"|"table"|"flowchart"|"timeline"|"before-after"|"image-grid"|"architecture"|"sequence"|"mini-chart","visualData":{}}]}
 
 Tone: "${tone}".
 ${focus ? `Focus: ${focus}.` : ""}
@@ -215,6 +266,186 @@ Use only standard ASCII characters in JSON values.`;
   }
 }
 
+export async function generateOutlines(
+  articleText: string,
+  tone: string = "professional",
+  focus?: string,
+  slideCount: number | "auto" = "auto",
+  targetPlatform: string = "linkedin",
+  audience: string = "founders",
+  goal: string = "teach",
+  ctaStyle: string = "soft"
+): Promise<{
+  outlines: {
+    id: string;
+    title: string;
+    description: string;
+    slides: { title: string; type: "COVER" | "CONTENT" | "CLOSING"; visualType: VisualType }[];
+  }[];
+}> {
+  const groq = getGroqClient();
+
+  const countInstruction =
+    slideCount === "auto"
+      ? "Create outlines containing a suitable number of slides (between 5 and 12 slides) depending on the article's depth."
+      : `Create outlines with EXACTLY ${slideCount} slides (including 1 COVER slide at the start, followed by content slides, and ending with exactly 1 CLOSING slide).`;
+
+  const systemPrompt = `You are a social media content strategist and copywriter.
+Analyze the article text and create exactly 3 alternate carousel outline angles.
+Each outline must be custom-tailored to the target platform, target audience, tone, and goals.
+
+Platform: ${targetPlatform}
+Audience: ${audience}
+Tone: ${tone}
+Goal: ${goal}
+CTA Style: ${ctaStyle}
+${countInstruction}
+
+Angles to generate:
+1. "Educational Blueprint": Structured, logical breakdown, step-by-step or educational guide.
+2. "Contrarian Hot-Take": Focused on the counter-intuitive arguments, bold metrics, or strong opinions.
+3. "Story-Driven Journey": Focused on narrative structure, problem-to-solution, or case study.
+
+For each outline, generate:
+- "title": A punchy name for this angle.
+- "description": A short explanation of why this angle works for the audience.
+- "slides": An array of slides. Each slide contains:
+  - "title": Short headline (5-8 words).
+  - "type": "COVER" | "CONTENT" | "CLOSING".
+  - "visualType": The layout or diagram type. Choose from:
+    "text-only" (narrative bullet points)
+    "code-block" (programming or terminal command snippets)
+    "step-chain" (ordered processes)
+    "venn" (overlaps or comparisons)
+    "wheel" (surrounding core categories)
+    "concentric" (hierarchical layers)
+    "icon-grid" (takeaways or grid highlights)
+    "quote" (testimonial or key quote)
+    "stat" (big metrics or stats)
+    "table" (matrix/comparisons)
+    "flowchart" (branching logic, if/else, algorithms)
+    "timeline" (chronological events, roadmaps)
+    "before-after" (transformation, refactor results)
+    "image-grid" (visual concepts, UI panels)
+    "architecture" (system layers, component design)
+    "sequence" (API calls, request/response flows)
+    "mini-chart" (bar charts, metrics, benchmarks)
+
+  Use visual variety — never more than 2 consecutive text-only CONTENT slides. Prefer showing over telling.
+
+OUTPUT JSON FORMAT:
+{
+  "outlines": [
+    {
+      "id": "1",
+      "title": "...",
+      "description": "...",
+      "slides": [
+        { "title": "...", "type": "COVER" | "CONTENT" | "CLOSING", "visualType": "text-only" }
+      ]
+    }
+  ]
+}
+Use only standard ASCII characters in JSON values. Do not write any other explanation or wrapper code. Just output valid JSON.`;
+
+  const MAX_TOTAL_TOKENS = 8000;
+  const MAX_OUTPUT_TOKENS = 4096;
+  const systemTokens = estimateTokens(systemPrompt) + 50;
+  const maxArticleTokens = MAX_TOTAL_TOKENS - MAX_OUTPUT_TOKENS - systemTokens - 200;
+  const compressedArticle = compressText(articleText, Math.max(maxArticleTokens, 500));
+
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Here is the blog article content:\n\n${compressedArticle}` },
+      ],
+      model: "openai/gpt-oss-120b",
+      temperature: 0.5,
+      max_tokens: 4096,
+    });
+
+    const content = chatCompletion.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("Received empty response from Groq API during outline generation.");
+    }
+
+    const parsed = tryParseJson(content);
+    if (!isRecord(parsed) || !Array.isArray(parsed.outlines)) {
+      throw new Error("Invalid outlines format returned by LLM.");
+    }
+
+    return parsed as any;
+  } catch (error: any) {
+    console.error("[GroqService] Failed to generate outlines:", error);
+    throw new Error(error.message || "Failed to generate outlines.");
+  }
+}
+
+export async function generateAlternatives(
+  slideType: "COVER" | "CLOSING",
+  originalText?: string,
+  tone: string = "professional",
+  audience: string = "founders",
+  goal: string = "teach",
+  currentTitle?: string,
+  currentBody?: string
+): Promise<{
+  alternatives: { title: string; body: string }[];
+}> {
+  const groq = getGroqClient();
+
+  const typeDesc = slideType === "COVER"
+    ? "Generate 3 alternative HOOK titles and subtitles for the COVER slide. Cover titles must be extremely catchy, scroll-stopping, and short (5-8 words). The body/subtitle should be a one-sentence payoff."
+    : "Generate 3 alternative CALL-TO-ACTION (CTA) titles and button texts for the CLOSING slide. Closing titles should drive outcomes. The body should be the CTA button text.";
+
+  const systemPrompt = `You are a social media copywriter.
+Analyze the target preferences and suggest 3 alternative options for the ${slideType} slide.
+
+Slide Type: ${slideType}
+Audience: ${audience}
+Tone: ${tone}
+Goal: ${goal}
+Current Title: ${currentTitle || ""}
+Current Body/CTA: ${currentBody || ""}
+
+${typeDesc}
+For COVER slide: wrap 1 or 2 high-impact words in title with asterisks for italic emphasis (e.g. "Optimize your *code*").
+
+OUTPUT JSON FORMAT:
+{
+  "alternatives": [
+    { "title": "Headline", "body": "Subtitle or button text" }
+  ]
+}
+Do not write any explanation. Return only valid JSON.`;
+
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Context from article:\n${originalText?.substring(0, 2000) || ""}` },
+      ],
+      model: "openai/gpt-oss-120b",
+      temperature: 0.7,
+      max_tokens: 1024,
+    });
+
+    const content = chatCompletion.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty response from Groq API during alternatives generation.");
+
+    const parsed = tryParseJson(content);
+    if (!isRecord(parsed) || !Array.isArray(parsed.alternatives)) {
+      throw new Error("Invalid alternatives format.");
+    }
+
+    return parsed as any;
+  } catch (error: any) {
+    console.error("[GroqService] Failed to generate alternatives:", error);
+    throw new Error(error.message || "Failed to generate alternatives.");
+  }
+}
+
 export async function regenerateBlock(
   block: { type: "COVER" | "CONTENT" | "CLOSING"; title: string; body: string; order: number },
   instruction: string,
@@ -279,7 +510,7 @@ CRITICAL RULES:
 }
 
 export async function fillVisualData(
-  visualType: "step-chain" | "venn" | "wheel" | "concentric" | "icon-grid" | "code-block" | "text-only" | "quote" | "stat" | "table",
+  visualType: VisualType,
   title: string,
   body: string
 ): Promise<VisualData | Record<string, unknown>> {
@@ -306,6 +537,20 @@ export async function fillVisualData(
     schemaDescription = `JSON Object matching: {"number": "The big statistic number (e.g. 80%, 2.5M, #1)", "label": "Short label describing what the number refers to (2-5 words)", "context": "Optional one-line context or source"}`;
   } else if (visualType === "table") {
     schemaDescription = `JSON Object matching: {"headers": ["", "Option A", "Option B"], "rows": [{"label": "Criteria 1", "values": ["Value A1", "Value B1"]}, {"label": "Criteria 2", "values": ["Value A2", "Value B2"]}]} (3-5 rows, 2-4 total columns including the label column). First header cell is always empty string.`;
+  } else if (visualType === "flowchart") {
+    schemaDescription = `JSON Object matching: {"nodes": [{"label": "Start label (2-5 words)", "shape": "start"}, {"label": "Process step (2-5 words)", "shape": "process"}, {"label": "Decision question (2-5 words)", "shape": "decision"}, {"label": "End label (2-5 words)", "shape": "end"}]} (generate exactly 3-5 nodes in logical flow order; use shape "start" for first, "end" for last, "decision" for branching points, "process" for everything else)`;
+  } else if (visualType === "timeline") {
+    schemaDescription = `JSON Object matching: {"events": [{"date": "Year or date (e.g. 2020, Q1)", "title": "Event title (2-5 words)", "description": "One line context (≤12 words)"}]} (generate exactly 3-5 events in chronological order)`;
+  } else if (visualType === "before-after") {
+    schemaDescription = `JSON Object matching: {"beforeTitle": "Before", "afterTitle": "After", "beforeItems": ["pain point 1 (≤8 words)", "pain point 2", "pain point 3"], "afterItems": ["improvement 1 (≤8 words)", "improvement 2", "improvement 3"]} (generate 3-4 items per side)`;
+  } else if (visualType === "image-grid") {
+    schemaDescription = `JSON Object matching: {"items": [{"label": "Panel title (2-4 words)", "description": "What this visual shows (≤12 words)"}]} (generate 2-4 items representing distinct visual concepts or UI panels)`;
+  } else if (visualType === "architecture") {
+    schemaDescription = `JSON Object matching: {"layers": [{"label": "Layer name (1-2 words, e.g. Frontend)", "items": ["Component 1 (≤3 words)", "Component 2"]}]} (generate 2-4 layers with 2-3 items each, ordered top-to-bottom)`;
+  } else if (visualType === "sequence") {
+    schemaDescription = `JSON Object matching: {"participants": ["Client", "API", "Database"], "steps": [{"from": 0, "to": 1, "label": "Action label (≤8 words)"}]} (2-4 participants as array indices 0-based, 3-6 steps showing message flow)`;
+  } else if (visualType === "mini-chart") {
+    schemaDescription = `JSON Object matching: {"title": "Chart title (2-4 words)", "bars": [{"label": "Bar label", "value": 75, "displayValue": "75ms"}]} (3-5 bars, value is 0-100 scale representing relative magnitude, displayValue is human-readable)`;
   }
 
   const systemPrompt = `You are a structured data extraction specialist.

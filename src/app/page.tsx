@@ -23,6 +23,8 @@ import {
   Image as ImageIcon,
   AlertCircle,
   Link as LinkIcon,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   ChevronUp,
   X,
@@ -31,6 +33,22 @@ import {
   Type as TypeIcon,
   Layers
 } from "lucide-react";
+
+const THEME_DEFAULT_COLORS: Record<string, { background: string; text: string; primary: string; secondary: string; tertiary: string }> = {
+  "monochrome": { background: "#050505", text: "#ffffff", primary: "#ffffff", secondary: "#a3a3a3", tertiary: "#525252" },
+  "soft-gradient": { background: "#fbfbfc", text: "#0f172a", primary: "#7c3aed", secondary: "#ec4899", tertiary: "#3b82f6" },
+  "warm-editorial": { background: "#f5f2eb", text: "#1e1b18", primary: "#e05a47", secondary: "#6b6259", tertiary: "#a8a297" },
+  "mesh-glow": { background: "#fdf2f8", text: "#0a0a0a", primary: "#ec4899", secondary: "#f472b6", tertiary: "#3b82f6" },
+  "cyber-horizon": { background: "#050505", text: "#ffffff", primary: "#ea580c", secondary: "#3b82f6", tertiary: "#4b5563" },
+  "linen-rust": { background: "#d8d7cf", text: "#1c1917", primary: "#b84a30", secondary: "#5c5553", tertiary: "#8b857d" },
+  "neo-brutalism": { background: "#F7F3EC", text: "#141414", primary: "#161616", secondary: "#555555", tertiary: "#999999" },
+  "neomorphism": { background: "#E4E0DA", text: "#2C3E50", primary: "#6D8CAE", secondary: "#95A5A6", tertiary: "#BDC3C7" },
+  "frosted-grid": { background: "#050505", text: "#FFFFFF", primary: "#FDE68A", secondary: "#9CA3AF", tertiary: "#4B5563" },
+  "glassmorphism": { background: "#0B0F19", text: "#FFFFFF", primary: "#38bdf8", secondary: "#818cf8", tertiary: "#475569" },
+  "liquid-glass": { background: "#0f172a", text: "#F1F5F9", primary: "#0ea5e9", secondary: "#3b82f6", tertiary: "#64748b" },
+  "sketch": { background: "#ffffff", text: "#1c1c1c", primary: "#000000", secondary: "#444444", tertiary: "#888888" },
+  "wireframe-3d": { background: "#f4f4f4", text: "#000000", primary: "#000000", secondary: "#333333", tertiary: "#888888" },
+};
 
 export interface Shape {
   id: string;
@@ -69,9 +87,9 @@ interface Slide {
 const TONES = [
   { value: "professional", label: "👔 Professional & Corporate" },
   { value: "educational", label: "💡 Educational & Informative" },
-  { value: "playful", label: "🎉 Playful & Energetic" },
   { value: "punchy", label: "🔥 Punchy & Minimalist" },
-  { value: "authoritative", label: "🎓 Authoritative & Academic" }
+  { value: "contrarian", label: "⚡ Contrarian & Bold" },
+  { value: "story-driven", label: "📖 Story-Driven & Narrative" },
 ];
 
 const PRESET_COLORS = [
@@ -146,7 +164,7 @@ export default function Home() {
   const [pastedText, setPastedText] = useState<string>("");
   const [usePastedText, setUsePastedText] = useState<boolean>(false);
   const [preferences, setPreferences] = useState({
-    tone: "educational",
+    tone: "professional",
     focus: "",
     slideCount: "auto" as number | "auto"
   });
@@ -157,6 +175,48 @@ export default function Home() {
   } | null>(null);
   const [showExtractedPreview, setShowExtractedPreview] = useState<boolean>(false);
   const [isPlanning, setIsPlanning] = useState<boolean>(false);
+
+  // Content Intelligence State
+  const [targetPlatform, setTargetPlatform] = useState<"linkedin" | "instagram" | "twitter" | "pitch-deck">("linkedin");
+  const [audience, setAudience] = useState<"founders" | "engineers" | "marketers" | "beginners" | "executives">("founders");
+  const [goal, setGoal] = useState<"teach" | "sell" | "summarize" | "announce" | "persuade">("teach");
+  const [ctaStyle, setCtaStyle] = useState<"soft" | "direct" | "newsletter" | "product" | "no-cta">("soft");
+
+  // Outlines State
+  const [outlines, setOutlines] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    slides: { title: string; type: "COVER" | "CONTENT" | "CLOSING"; visualType: VisualType }[];
+  }[]>([]);
+  const [selectedOutlineId, setSelectedOutlineId] = useState<string>("");
+  const [isGeneratingOutlines, setIsGeneratingOutlines] = useState<boolean>(false);
+
+  // Brand Kit State
+  const [brandKit, setBrandKit] = useState<{
+    logoUrl?: string;
+    colors?: { primary: string; secondary: string; background: string; text: string };
+    fontPairing?: string;
+    handle?: string;
+    website?: string;
+    defaultCTA?: string;
+    defaultTone?: string;
+    defaultTheme?: string;
+  }>({});
+  const [isBrandKitOpen, setIsBrandKitOpen] = useState<boolean>(false);
+
+  // Custom Theme Variations State
+  const [customFontPairing, setCustomFontPairing] = useState<string>("Outfit + Outfit");
+  const [customLayoutDensity, setCustomLayoutDensity] = useState<"compact" | "comfortable" | "minimal">("comfortable");
+  const [customLogoUrl, setCustomLogoUrl] = useState<string>("");
+  const [noImages, setNoImages] = useState<boolean>(false);
+  const [customAccentColor, setCustomAccentColor] = useState<string>("");
+
+  // Alternatives Modal / Swapper State
+  const [alternativesSlideType, setAlternativesSlideType] = useState<"COVER" | "CLOSING" | null>(null);
+  const [alternativesSlideIdx, setAlternativesSlideIdx] = useState<number | null>(null);
+  const [alternativesList, setAlternativesList] = useState<{ title: string; body: string }[]>([]);
+  const [isGeneratingAlternatives, setIsGeneratingAlternatives] = useState<boolean>(false);
 
   // Stage 2 State
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -188,6 +248,7 @@ export default function Home() {
   ];
   const [themePreviewUri, setThemePreviewUri] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState<boolean>(false);
+  const [previewSlideIdx, setPreviewSlideIdx] = useState<number>(0);
 
   // Stage 4 State
   const [renderedImages, setRenderedImages] = useState<string[]>([]);
@@ -225,46 +286,86 @@ export default function Home() {
     "wireframe-3d": "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#f4f4f4"/><defs><pattern id="w3Grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="1"/></pattern></defs><rect width="400" height="500" fill="url(#w3Grid)"/><rect x="20" y="80" width="320" height="380" rx="16" fill="rgba(0,0,0,0.08)"/><rect x="30" y="70" width="320" height="380" rx="16" fill="rgba(0,0,0,0.15)"/><rect x="40" y="60" width="320" height="380" rx="16" fill="#ffffff" stroke="#000000" stroke-width="2"/><rect x="60" y="85" width="12" height="12" fill="#000000"/><rect x="76" y="85" width="6" height="4" fill="#000000"/><rect x="76" y="93" width="6" height="4" fill="#000000"/><text x="340" y="95" font-family="monospace" font-size="12" font-weight="700" fill="#000000" text-anchor="end">01/05</text><text x="60" y="190" font-family="monospace" font-size="34" fill="#000000" font-weight="700" letter-spacing="-1">Wireframe</text><text x="60" y="230" font-family="monospace" font-size="34" fill="#000000" font-weight="700" letter-spacing="-1">3D</text><text x="60" y="260" font-family="monospace" font-size="14" fill="#333333" font-weight="600">Brutalist layout</text><text x="60" y="410" font-family="monospace" font-size="12" font-weight="700" fill="#000000">&gt; READY TO EXECUTE _</text></svg>`),
   };
 
+  const lastThemeNameRef = React.useRef<string>(themeName);
+
   // Show hardcoded preview instantly, then upgrade with live render in background
   useEffect(() => {
     if (step === 3 && slides.length > 0) {
-      // 1. Show hardcoded SVG immediately
-      setThemePreviewUri(THEME_PREVIEWS[themeName] || null);
+      // 1. Show hardcoded SVG immediately ONLY if theme changed or we don't have a preview yet
+      if (lastThemeNameRef.current !== themeName || !themePreviewUri) {
+        setThemePreviewUri(THEME_PREVIEWS[themeName] || null);
+        lastThemeNameRef.current = themeName;
+      }
+      setIsGeneratingPreview(true);
 
-      // 2. Fire real render in background and swap when ready
+      // 2. Fire real render in background with 300ms debounce to prevent API spamming
       let active = true;
-      const upgradePreview = async () => {
-        try {
-          const s = slides[0];
-          const { data } = await axios.post("/api/render", {
-            slides: [{
-              type: s.type,
-              title: s.userTitle,
-              body: s.userBody,
-              imageUrl: s.imageUrl || null,
-              imageLayout: s.imageLayout || "inline",
-              visualType: s.visualType || "text-only",
-              visualData: s.visualData || undefined,
-              paletteOverride,
-            }],
-            themeName,
-            username,
-            websiteUrl,
-          });
-          if (active) {
-            if (data.success && data.images.length > 0) {
-              setThemePreviewUri(data.images[0]);
+      const timer = setTimeout(() => {
+        const upgradePreview = async () => {
+          try {
+            const targetIdx = previewSlideIdx < slides.length ? previewSlideIdx : 0;
+            const s = slides[targetIdx] || slides[0];
+            const { data } = await axios.post("/api/render", {
+              slides: [{
+                type: s.type,
+                title: s.userTitle,
+                body: s.userBody,
+                imageUrl: s.imageUrl || null,
+                imageLayout: s.imageLayout || "inline",
+                visualType: s.visualType || "text-only",
+                visualData: s.visualData || undefined,
+                paletteOverride,
+                order: targetIdx,
+              }],
+              themeName,
+              username,
+              websiteUrl,
+              fontPairing: customFontPairing,
+              layoutDensity: customLayoutDensity,
+              logoUrl: customLogoUrl || undefined,
+              noImages,
+              accentColor: customAccentColor || undefined,
+            });
+            if (active) {
+              if (data.success && data.data?.images && data.data.images.length > 0) {
+                setThemePreviewUri(data.data.images[0]);
+              }
+            }
+          } catch { /* keep hardcoded fallback */ }
+          finally {
+            if (active) {
+              setIsGeneratingPreview(false);
             }
           }
-        } catch { /* keep hardcoded fallback */ }
-      };
-      upgradePreview();
-      return () => { active = false; };
-    }
-  }, [step, themeName, username, websiteUrl, slides, paletteOverride]);
+        };
+        upgradePreview();
+      }, 300);
 
-  // Load draft from localStorage on mount
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    }
+  }, [step, themeName, username, websiteUrl, slides, paletteOverride, customFontPairing, customLayoutDensity, customLogoUrl, noImages, customAccentColor, previewSlideIdx]);
+
+  // Load draft & brand kit from localStorage on mount
   useEffect(() => {
+    const savedBrand = localStorage.getItem("caro_brand_kit");
+    if (savedBrand) {
+      try {
+        const bk = JSON.parse(savedBrand);
+        setBrandKit(bk);
+        if (bk.handle) setUsername(bk.handle);
+        if (bk.website) setWebsiteUrl(bk.website);
+        if (bk.defaultTheme) setThemeName(bk.defaultTheme as ThemeName);
+        if (bk.fontPairing) setCustomFontPairing(bk.fontPairing);
+        if (bk.logoUrl) setCustomLogoUrl(bk.logoUrl);
+        if (bk.colors?.primary) setCustomAccentColor(bk.colors.primary);
+      } catch (e) {
+        console.warn("Failed to load brand kit from localStorage", e);
+      }
+    }
+
     const saved = localStorage.getItem("caro_draft_project");
     if (saved) {
       try {
@@ -279,6 +380,21 @@ export default function Home() {
         if (parsed.extractedData) setExtractedData(parsed.extractedData);
         if (parsed.maxUnlockedStep) setMaxUnlockedStep(parsed.maxUnlockedStep);
         if (parsed.paletteOverride) setPaletteOverride(parsed.paletteOverride);
+        
+        // Load content intelligence
+        if (parsed.targetPlatform) setTargetPlatform(parsed.targetPlatform);
+        if (parsed.audience) setAudience(parsed.audience);
+        if (parsed.goal) setGoal(parsed.goal);
+        if (parsed.ctaStyle) setCtaStyle(parsed.ctaStyle);
+        if (parsed.outlines) setOutlines(parsed.outlines);
+        if (parsed.selectedOutlineId) setSelectedOutlineId(parsed.selectedOutlineId);
+        
+        // Load custom theme variations
+        if (parsed.customFontPairing) setCustomFontPairing(parsed.customFontPairing);
+        if (parsed.customLayoutDensity) setCustomLayoutDensity(parsed.customLayoutDensity);
+        if (parsed.customLogoUrl) setCustomLogoUrl(parsed.customLogoUrl);
+        if (typeof parsed.noImages === "boolean") setNoImages(parsed.noImages);
+        if (parsed.customAccentColor) setCustomAccentColor(parsed.customAccentColor);
       } catch (e) {
         console.warn("Failed to restore draft from localStorage", e);
       }
@@ -299,7 +415,18 @@ export default function Home() {
         scribble,
         extractedData,
         maxUnlockedStep: maxStep,
-        paletteOverride
+        paletteOverride,
+        targetPlatform,
+        audience,
+        goal,
+        ctaStyle,
+        outlines,
+        selectedOutlineId,
+        customFontPairing,
+        customLayoutDensity,
+        customLogoUrl,
+        noImages,
+        customAccentColor
       })
     );
   };
@@ -379,7 +506,41 @@ export default function Home() {
   // ==========================================
   // STAGE 2: Call AI to Plan Slides
   // ==========================================
-  const handlePlanSlides = async () => {
+  // ==========================================
+  // STAGE 2: Call AI to Plan Slides
+  // ==========================================
+  const handleGenerateOutlines = async () => {
+    if (!extractedData) return;
+    setError(null);
+    setIsGeneratingOutlines(true);
+
+    try {
+      const { data: result } = await axios.post("/api/generate-outlines", {
+        text: extractedData.content,
+        tone: preferences.tone,
+        focus: preferences.focus,
+        slideCount: preferences.slideCount,
+        targetPlatform,
+        audience,
+        goal,
+        ctaStyle
+      });
+      if (!result.success) {
+        throw new Error(result.error || "Failed to generate outlines.");
+      }
+
+      setOutlines(result.data.outlines);
+      setSelectedOutlineId(result.data.outlines[0]?.id || "");
+      setStep(1.5);
+      saveDraftLocally();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to generate outlines.");
+    } finally {
+      setIsGeneratingOutlines(false);
+    }
+  };
+
+  const handlePlanSlides = async (chosenOutline?: any) => {
     if (!extractedData) return;
     setError(null);
     setIsPlanning(true);
@@ -389,7 +550,12 @@ export default function Home() {
         text: extractedData.content,
         tone: preferences.tone,
         focus: preferences.focus,
-        slideCount: preferences.slideCount
+        slideCount: preferences.slideCount,
+        targetPlatform,
+        audience,
+        goal,
+        ctaStyle,
+        selectedOutline: chosenOutline
       });
       if (!result.success) {
         throw new Error(result.error || "Failed to plan slides.");
@@ -422,6 +588,65 @@ export default function Home() {
       setError(err instanceof Error ? err.message : String(err) || "Failed to plan slides with AI.");
     } finally {
       setIsPlanning(false);
+    }
+  };
+
+  const handleGetAlternatives = async (index: number, slideType: "COVER" | "CLOSING") => {
+    const slide = slides[index];
+    if (!slide) return;
+    
+    setAlternativesSlideIdx(index);
+    setAlternativesSlideType(slideType);
+    setAlternativesList([]);
+    setIsGeneratingAlternatives(true);
+    setError(null);
+
+    try {
+      const { data: result } = await axios.post("/api/regenerate-alternatives", {
+        slideType,
+        originalText: extractedData?.content,
+        currentTitle: slide.userTitle,
+        currentBody: slide.userBody,
+        tone: preferences.tone,
+        audience,
+        goal
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to generate alternatives.");
+      }
+
+      setAlternativesList(result.data.alternatives);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err) || "Failed to generate alternatives.");
+      setAlternativesSlideIdx(null);
+      setAlternativesSlideType(null);
+    } finally {
+      setIsGeneratingAlternatives(false);
+    }
+  };
+
+  const applyAlternative = (title: string, body: string) => {
+    if (alternativesSlideIdx === null) return;
+    const updated = [...slides];
+    updated[alternativesSlideIdx].userTitle = title;
+    updated[alternativesSlideIdx].userBody = body;
+    updated[alternativesSlideIdx].isEdited = true;
+    setSlides(updated);
+    saveDraftLocally(updated);
+    
+    setAlternativesSlideIdx(null);
+    setAlternativesSlideType(null);
+    setAlternativesList([]);
+  };
+
+  const autoFixQuality = async (slideIndex: number, fixType: string) => {
+    if (slideIndex === -1 || slideIndex === undefined) return;
+    const slide = slides[slideIndex];
+    if (!slide) return;
+    
+    if (fixType === "shorten") {
+      await handleRegenerateBlock(slideIndex, "Shorten this slide body content to under 45 words while retaining its core meaning and details");
     }
   };
 
@@ -526,6 +751,55 @@ export default function Home() {
 
       setSlides(updated);
       saveDraftLocally(updated);
+
+      // If we're on Stage 4 (export preview), re-render just this slide's image
+      if (step === 4) {
+        try {
+          const approvedSlides = updated.filter(s => s.approved);
+          const approvedIdx = approvedSlides.findIndex(s => s.id === target.id);
+          if (approvedIdx !== -1 && !updated[index].manuallyEdited) {
+            const palette = paletteOverride || undefined;
+            const singleSlidePayload = {
+              type: updated[index].type,
+              title: updated[index].userTitle,
+              body: updated[index].userBody,
+              imageUrl: updated[index].imageUrl || null,
+              imageLayout: updated[index].imageLayout || "inline",
+              shapes: updated[index].shapes || [],
+              visualType: updated[index].visualType || "text-only",
+              visualData: updated[index].visualData || undefined,
+              paletteOverride: palette,
+            };
+            const { data: renderResult } = await axios.post("/api/render", {
+              slides: [singleSlidePayload],
+              themeName,
+              username,
+              websiteUrl,
+              scribble,
+              fontPairing: customFontPairing,
+              layoutDensity: customLayoutDensity,
+              logoUrl: customLogoUrl || undefined,
+              noImages,
+              accentColor: customAccentColor || undefined,
+              scale: 1,
+            });
+            if (renderResult.success && renderResult.data.images?.[0]) {
+              setRenderedImages(prev => {
+                const next = [...prev];
+                next[approvedIdx] = renderResult.data.images[0];
+                return next;
+              });
+              setAllThemeImages(prev => {
+                const themeArr = [...(prev[themeName] || [])];
+                themeArr[approvedIdx] = renderResult.data.images[0];
+                return { ...prev, [themeName]: themeArr };
+              });
+            }
+          }
+        } catch (renderErr: unknown) {
+          console.error("[handleRegenerateBlock] Single-slide re-render failed:", renderErr);
+        }
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err) || "Failed to regenerate slide block.");
     } finally {
@@ -626,15 +900,17 @@ export default function Home() {
     scribble,
   });
 
-  const renderTheme = async (theme: ThemeName): Promise<string[] | null> => {
+  const renderTheme = async (theme: ThemeName, scale: number = 1): Promise<string[] | null> => {
     const approved = slides.filter(s => s.approved);
     if (approved.length === 0) return null;
 
-    setThemeLoadingStates(prev => ({ ...prev, [theme]: true }));
+    if (scale === 1) {
+      setThemeLoadingStates(prev => ({ ...prev, [theme]: true }));
+    }
 
     try {
       const renderedList = new Array(approved.length).fill("");
-      if (theme === activeThemeRef.current) {
+      if (scale === 1 && theme === activeThemeRef.current) {
         setRenderedImages([...renderedList]);
       }
 
@@ -664,6 +940,12 @@ export default function Home() {
           username,
           websiteUrl,
           scribble,
+          fontPairing: customFontPairing,
+          layoutDensity: customLayoutDensity,
+          logoUrl: customLogoUrl || undefined,
+          noImages,
+          accentColor: customAccentColor || undefined,
+          scale,
         });
         if (!result.success) throw new Error(result.error);
         apiResults = result.data.images;
@@ -687,17 +969,23 @@ export default function Home() {
         }
       }
 
-      setAllThemeImages(prev => ({ ...prev, [theme]: renderedList }));
-      if (theme === activeThemeRef.current) {
-        setRenderedImages([...renderedList]);
+      if (scale === 1) {
+        setAllThemeImages(prev => ({ ...prev, [theme]: renderedList }));
+        if (theme === activeThemeRef.current) {
+          setRenderedImages([...renderedList]);
+        }
       }
 
       return renderedList;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err) || `Failed to render "${theme}" theme.`);
+      if (scale === 1) {
+        setError(err instanceof Error ? err.message : String(err) || `Failed to render "${theme}" theme.`);
+      }
       return null;
     } finally {
-      setThemeLoadingStates(prev => ({ ...prev, [theme]: false }));
+      if (scale === 1) {
+        setThemeLoadingStates(prev => ({ ...prev, [theme]: false }));
+      }
     }
   };
 
@@ -1014,7 +1302,11 @@ export default function Home() {
         text: extractedData.content,
         tone: preferences.tone,
         focus: preferences.focus,
-        slideCount: preferences.slideCount
+        slideCount: preferences.slideCount,
+        targetPlatform,
+        audience,
+        goal,
+        ctaStyle,
       });
       if (!result.success) {
         throw new Error(result.error || "Failed to regenerate slides.");
@@ -1062,10 +1354,12 @@ export default function Home() {
     setError(null);
 
     try {
+      // Re-render at 2x for high quality export
+      const hqImages = await renderTheme(themeName, 2) || renderedImages;
       const approvedExport = slides.filter(s => s.approved);
       const payloadImages = await Promise.all(
         indicesToExport.map(async (idx) => {
-          let dataUri = renderedImages[idx];
+          let dataUri = hqImages[idx];
           let ext = "png";
           if (exportFormat === "jpeg") {
             try {
@@ -1240,6 +1534,146 @@ export default function Home() {
     saveDraftLocally(updated);
   };
 
+  const qualityReport = useMemo(() => {
+    if (slides.length === 0) return { score: 100, suggestions: [] };
+
+    let score = 100;
+    const suggestions: { id: string; type: "error" | "warning" | "success"; text: string; actionText?: string; fixType?: string; slideIndex?: number }[] = [];
+
+    // 1. Hook check (Slide 1 title is Cover title)
+    const coverSlide = slides.find(s => s.type === "COVER");
+    if (coverSlide) {
+      const title = coverSlide.userTitle || "";
+
+      // Check for italics highlight
+      if (!title.includes("*")) {
+        score -= 15;
+        suggestions.push({
+          id: "hook_italics",
+          type: "warning",
+          text: "Hook style: Wrap 1-2 words in asterisks (*) to highlight them in editorial serif font.",
+          slideIndex: slides.indexOf(coverSlide)
+        });
+      }
+      
+      // Check title length
+      const words = title.split(/\s+/).filter(Boolean).length;
+      if (words > 9) {
+        score -= 10;
+        suggestions.push({
+          id: "hook_length_long",
+          type: "warning",
+          text: `Hook title is slightly long (${words} words). Keep it under 8 words for higher click-through.`,
+          slideIndex: slides.indexOf(coverSlide)
+        });
+      } else if (words < 3 && words > 0) {
+        score -= 5;
+        suggestions.push({
+          id: "hook_length_short",
+          type: "warning",
+          text: "Hook title is very short. Ensure it explains the payoff of the carousel.",
+          slideIndex: slides.indexOf(coverSlide)
+        });
+      }
+    } else {
+      score -= 20;
+      suggestions.push({
+        id: "no_cover",
+        type: "error",
+        text: "Missing COVER slide. Carousels require an introductory slide to grab attention."
+      });
+    }
+
+    // 2. Text density check (slides with body copy too long)
+    slides.forEach((s, idx) => {
+      if (s.approved) {
+        const bodyText = s.userBody || "";
+        const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
+        if (wordCount > 60) {
+          score -= Math.min(10, Math.ceil((wordCount - 60) / 2));
+          suggestions.push({
+            id: `density_${s.id}`,
+            type: "warning",
+            text: `Slide ${idx + 1} is text-heavy (${wordCount} words). Try to keep it under 60 words for visual readability.`,
+            slideIndex: idx,
+            actionText: "Shorten Text",
+            fixType: "shorten"
+          });
+        }
+      }
+    });
+
+    // 3. CTA check (closing slide)
+    const closingSlide = slides.find(s => s.type === "CLOSING");
+    if (closingSlide) {
+      const bodyText = closingSlide.userBody || "";
+      if (!bodyText || bodyText.trim().length === 0) {
+        if (ctaStyle !== "no-cta") {
+          score -= 15;
+          suggestions.push({
+            id: "cta_missing_body",
+            type: "warning",
+            text: "Closing slide has no call-to-action text. Add a button text or payoff.",
+            slideIndex: slides.indexOf(closingSlide)
+          });
+        }
+      }
+    } else {
+      score -= 15;
+      suggestions.push({
+        id: "no_closing",
+        type: "warning",
+        text: "Missing CLOSING slide. It is best practice to end with a clear Call-To-Action."
+      });
+    }
+
+    // 4. Diagram balance check
+    const contentSlides = slides.filter(s => s.approved && s.type === "CONTENT");
+    const hasDiagram = contentSlides.some(s => s.visualType && s.visualType !== "text-only");
+    if (!hasDiagram) {
+      score -= 15;
+      suggestions.push({
+        id: "no_diagrams",
+        type: "warning",
+        text: "Zero diagrams: This carousel only has text-only slides. Consider changing at least one slide to a diagram layout (e.g. flowchart, timeline, step-chain) for visual variety."
+      });
+    }
+
+    // 5. Consecutive text-only streak check
+    let maxTextStreak = 0;
+    let currentStreak = 0;
+    for (const s of contentSlides) {
+      if (!s.visualType || s.visualType === "text-only") {
+        currentStreak++;
+        maxTextStreak = Math.max(maxTextStreak, currentStreak);
+      } else {
+        currentStreak = 0;
+      }
+    }
+    if (maxTextStreak >= 3) {
+      score -= 10;
+      suggestions.push({
+        id: "text_streak",
+        type: "warning",
+        text: `${maxTextStreak} consecutive text-only slides detected. Break up the narrative with a flowchart, timeline, stat, or before/after slide to show rather than tell.`
+      });
+    }
+
+    const visualSlideCount = contentSlides.filter(s => s.visualType && s.visualType !== "text-only").length;
+    const visualRatio = contentSlides.length > 0 ? visualSlideCount / contentSlides.length : 0;
+    if (contentSlides.length >= 4 && visualRatio < 0.4) {
+      score -= 8;
+      suggestions.push({
+        id: "low_visual_ratio",
+        type: "warning",
+        text: `Only ${Math.round(visualRatio * 100)}% of content slides are visual. Aim for at least 50% diagrams, code, or stats for stronger storytelling.`
+      });
+    }
+
+    score = Math.max(0, score);
+    return { score, suggestions };
+  }, [slides, ctaStyle]);
+
   const steps = [
     { num: 1, label: "Extract" },
     { num: 2, label: "Review" },
@@ -1250,6 +1684,25 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
       
+      {/* Header / Navbar */}
+      <header className="border-b border-neutral-200 bg-white/80 backdrop-blur-md sticky top-0 z-40">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-6 w-6 text-blue-600 animate-pulse" />
+            <span className="text-xl font-extrabold tracking-tight text-neutral-900">Caro</span>
+            <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-100">PRO</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsBrandKitOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 hover:text-neutral-900 hover:border-neutral-300 font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+            Brand Kit
+          </button>
+        </div>
+      </header>
+
       {/* Central Layout Body */}
       <StageErrorBoundary stageName="Carousel Wizard">
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-12 flex flex-col justify-start">
@@ -1411,12 +1864,108 @@ export default function Home() {
             )}
 
             {/* Preferences Configuration */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">
-                  Tone & Preferences <span className="text-neutral-400 font-medium">(Optional)</span>
+            {/* Content Intelligence Controls */}
+            <div className="space-y-4 pt-4 border-t border-neutral-100">
+              <span className="text-xs font-black text-neutral-600 uppercase tracking-wider block">Content Intelligence</span>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {/* Target Platform */}
+                <div className="space-y-1.5">
+                  <label htmlFor="target-platform" className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Target Platform</label>
+                  <select
+                    id="target-platform"
+                    value={targetPlatform}
+                    onChange={(e) => setTargetPlatform(e.target.value as any)}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                  >
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="twitter">Twitter/X</option>
+                    <option value="pitch-deck">Pitch Deck Style</option>
+                  </select>
+                </div>
+
+                {/* Audience */}
+                <div className="space-y-1.5">
+                  <label htmlFor="audience-select" className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Audience</label>
+                  <select
+                    id="audience-select"
+                    value={audience}
+                    onChange={(e) => setAudience(e.target.value as any)}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                  >
+                    <option value="founders">Founders</option>
+                    <option value="engineers">Engineers</option>
+                    <option value="marketers">Marketers</option>
+                    <option value="beginners">Beginners</option>
+                    <option value="executives">Executives</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Tone */}
+                <div className="space-y-1.5">
+                  <label htmlFor="tone-select" className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Tone</label>
+                  <select
+                    id="tone-select"
+                    value={preferences.tone}
+                    onChange={(e) => setPreferences({ ...preferences, tone: e.target.value })}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                  >
+                    <option value="educational">Educational</option>
+                    <option value="punchy">Punchy</option>
+                    <option value="contrarian">Contrarian</option>
+                    <option value="story-driven">Story-Driven</option>
+                    <option value="professional">Professional</option>
+                  </select>
+                </div>
+
+                {/* Goal */}
+                <div className="space-y-1.5">
+                  <label htmlFor="goal-select" className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Goal</label>
+                  <select
+                    id="goal-select"
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value as any)}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                  >
+                    <option value="teach">Teach</option>
+                    <option value="sell">Sell</option>
+                    <option value="summarize">Summarize</option>
+                    <option value="announce">Announce</option>
+                    <option value="persuade">Persuade</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* CTA Style */}
+              <div className="space-y-1.5">
+                <label htmlFor="cta-style-select" className="text-xs font-bold text-neutral-500 uppercase tracking-wider block font-sans">CTA Style</label>
+                <select
+                  id="cta-style-select"
+                  value={ctaStyle}
+                  onChange={(e) => setCtaStyle(e.target.value as any)}
+                  className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                >
+                  <option value="soft">Soft CTA</option>
+                  <option value="direct">Direct CTA</option>
+                  <option value="newsletter">Newsletter CTA</option>
+                  <option value="product">Product/Sales CTA</option>
+                  <option value="no-cta">No CTA</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Custom Focus & Slide count */}
+            <div className="space-y-4 pt-4 border-t border-neutral-100">
+              <div className="space-y-1.5">
+                <label htmlFor="preferences-focus" className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">
+                  Additional Details & Focus <span className="text-neutral-400 font-medium">(Optional)</span>
                 </label>
                 <textarea
-                  placeholder="e.g. Keep it punchy, focus on the 3 main takeaways, use a friendly tone..."
+                  id="preferences-focus"
+                  placeholder="e.g. Focus on the 3 main takeaways, add custom references..."
                   rows={3}
                   value={preferences.focus}
                   onChange={(e) => setPreferences({ ...preferences, focus: e.target.value })}
@@ -1467,44 +2016,140 @@ export default function Home() {
                   />
                 </div>
               )}
+            </div>
 
-              {/* Extracted Preview Panel inside Step 1 */}
-              {extractedData && (
-                <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50 space-y-3 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Extracted Text preview</span>
-                    <button
-                      type="button"
-                      onClick={() => setShowExtractedPreview(!showExtractedPreview)}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
-                    >
-                      {showExtractedPreview ? "Collapse" : "Expand"}
-                    </button>
-                  </div>
-                  {showExtractedPreview && (
-                    <div className="bg-white border border-neutral-200 rounded-lg p-3 max-h-[160px] overflow-y-auto text-xs text-neutral-600 whitespace-pre-line font-medium leading-relaxed">
-                      <strong>Title: {extractedData.title}</strong>
-                      <hr className="my-2 border-neutral-100" />
-                      {extractedData.content}
-                    </div>
-                  )}
+            {/* Extracted Preview Panel inside Step 1 */}
+            {extractedData && (
+              <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50 space-y-3 animate-in fade-in duration-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Extracted Text preview</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowExtractedPreview(!showExtractedPreview)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                  >
+                    {showExtractedPreview ? "Collapse" : "Expand"}
+                  </button>
                 </div>
-              )}
+                {showExtractedPreview && (
+                  <div className="bg-white border border-neutral-200 rounded-lg p-3 max-h-[160px] overflow-y-auto text-xs text-neutral-600 whitespace-pre-line font-medium leading-relaxed">
+                    <strong>Title: {extractedData.title}</strong>
+                    <hr className="my-2 border-neutral-100" />
+                    {extractedData.content}
+                  </div>
+                )}
+              </div>
+            )}
 
-              {/* Submit CTA */}
+            {/* Submit CTA */}
+            <button
+              type="button"
+              onClick={handleGenerateOutlines}
+              disabled={isGeneratingOutlines || !extractedData}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGeneratingOutlines ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Generating Outlines...
+                </>
+              ) : (
+                "Plan Slides & Outlines"
+              )}
+            </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 1.5: Outline Selection */}
+        {step === 1.5 && (
+          <div className="max-w-4xl mx-auto w-full space-y-6 animate-in fade-in duration-200">
+            <div className="space-y-1">
+              <h2 className="text-3xl font-extrabold tracking-tight text-neutral-900">
+                Choose Carousel Angle
+              </h2>
+              <p className="text-neutral-500 font-medium">
+                We generated 3 angles for your content. Select the one that matches your narrative strategy.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {outlines.map((outline, oIdx) => {
+                const isSelected = selectedOutlineId === outline.id;
+                const angleLabel = oIdx === 0 ? "Educational Blueprint" : oIdx === 1 ? "Contrarian Hot-Take" : "Story-Driven Journey";
+                
+                return (
+                  <div
+                    key={outline.id}
+                    onClick={() => setSelectedOutlineId(outline.id)}
+                    className={`border rounded-2xl p-5 bg-white cursor-pointer hover:shadow-md transition-all flex flex-col justify-between min-h-[380px] relative ${
+                      isSelected ? "border-blue-500 ring-2 ring-blue-500/10 shadow-sm" : "border-neutral-200"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          oIdx === 0 ? "bg-blue-50 text-blue-700 border border-blue-100" :
+                          oIdx === 1 ? "bg-orange-50 text-orange-700 border border-orange-100" :
+                          "bg-purple-50 text-purple-700 border border-purple-100"
+                        }`}>
+                          {angleLabel}
+                        </span>
+                        {isSelected && <Check className="h-4 w-4 text-blue-600 font-black" />}
+                      </div>
+
+                      <h3 className="font-extrabold text-neutral-950 text-sm mb-1">{outline.title}</h3>
+                      <p className="text-xs text-neutral-400 leading-relaxed font-medium mb-3">{outline.description}</p>
+                      
+                      <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 border-t border-neutral-50 pt-2.5">
+                        {outline.slides.map((s, sIdx) => (
+                          <div key={sIdx} className="flex items-center gap-1.5 text-[11px] text-neutral-500 font-medium truncate">
+                            <span className="font-bold text-neutral-400">{sIdx + 1}.</span>
+                            <span className="text-[10px] uppercase font-black tracking-wide text-blue-600 bg-blue-50/50 px-1 rounded shrink-0">{s.type === "COVER" ? "Cov" : s.type === "CLOSING" ? "Cta" : "C"}</span>
+                            <span className="truncate flex-1">{s.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 text-[11px] text-neutral-400 font-bold border-t border-neutral-50 flex justify-between items-center">
+                      <span>{outline.slides.length} slides</span>
+                      <span className="text-blue-500 uppercase tracking-widest text-[9px] font-black">{isSelected ? "Selected" : "Click to select"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Submit Action */}
+            <div className="flex justify-between items-center pt-4">
               <button
                 type="button"
-                onClick={handlePlanSlides}
-                disabled={isPlanning || !extractedData}
-                className="w-full py-3.5 bg-[rgb(130,161,246)] hover:bg-[rgb(114,152,246)] text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setStep(1)}
+                className="px-5 py-2.5 text-neutral-600 hover:text-neutral-900 text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                Back to Article
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  const outline = outlines.find(o => o.id === selectedOutlineId);
+                  if (outline) handlePlanSlides(outline);
+                }}
+                disabled={isPlanning}
+                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isPlanning ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    Generating Slides Plan...
+                    Generating slide details...
                   </>
                 ) : (
-                  "Generate Slides Plan"
+                  <>
+                    Flesh out Slide Contents
+                    <ArrowRight className="h-4 w-4" />
+                  </>
                 )}
               </button>
             </div>
@@ -1513,8 +2158,8 @@ export default function Home() {
 
         {/* STEP 2: Slide Block Approval & Editing */}
         {step === 2 && (
-          <div className="max-w-3xl mx-auto w-full space-y-6 animate-in fade-in duration-200">
-            <div className="flex justify-between items-end">
+          <div className="w-full space-y-6 animate-in fade-in duration-200">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-extrabold text-neutral-900">Review & Edit</h2>
                 <p className="text-sm text-neutral-500 font-medium mt-1">
@@ -1545,195 +2190,280 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Slide list */}
-            <div className="space-y-4">
-              {slides.map((s, idx) => {
-                const isItemRegenerating = isRegenerating[s.id] || false;
-                const instVal = aiInstructions[s.id] || "";
-                
-                return (
-                  <div
-                    key={s.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDragEnd={handleDragEnd}
-                    className={`bg-white border rounded-xl p-5 flex flex-col gap-4 relative transition-all ${
-                      draggedIndex === idx ? "opacity-35 border-dashed border-blue-500" : ""
-                    } ${s.approved ? "border-neutral-200 shadow-sm" : "border-neutral-100 opacity-60 bg-neutral-50/50"}`}
-                  >
-                    
-                    {/* Top card bar (Type and AI rewrite options) */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-neutral-100 pb-3">
-                      <div className="flex items-center gap-3">
-                        {/* Drag Handle */}
-                        <div className="cursor-grab active:cursor-grabbing text-neutral-300 hover:text-neutral-500 transition-all p-1">
-                          <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor">
-                            <circle cx="2" cy="2" r="1.5" />
-                            <circle cx="2" cy="8" r="1.5" />
-                            <circle cx="2" cy="14" r="1.5" />
-                            <circle cx="8" cy="2" r="1.5" />
-                            <circle cx="8" cy="8" r="1.5" />
-                            <circle cx="8" cy="14" r="1.5" />
-                          </svg>
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
+              {/* Slide list (Left Column) */}
+              <div className="flex-1 w-full space-y-4">
+                {slides.map((s, idx) => {
+                  const isItemRegenerating = isRegenerating[s.id] || false;
+                  const instVal = aiInstructions[s.id] || "";
+                  
+                  return (
+                    <div
+                      key={s.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      className={`bg-white border rounded-xl p-5 flex flex-col gap-4 relative transition-all ${
+                        draggedIndex === idx ? "opacity-35 border-dashed border-blue-500" : ""
+                      } ${s.approved ? "border-neutral-200 shadow-sm" : "border-neutral-100 opacity-60 bg-neutral-50/50"}`}
+                    >
+                      
+                      {/* Top card bar (Type and AI rewrite options) */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-neutral-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          {/* Drag Handle */}
+                          <div className="cursor-grab active:cursor-grabbing text-neutral-300 hover:text-neutral-500 transition-all p-1">
+                            <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor">
+                              <circle cx="2" cy="2" r="1.5" />
+                              <circle cx="2" cy="8" r="1.5" />
+                              <circle cx="2" cy="14" r="1.5" />
+                              <circle cx="8" cy="2" r="1.5" />
+                              <circle cx="8" cy="8" r="1.5" />
+                              <circle cx="8" cy="14" r="1.5" />
+                            </svg>
+                          </div>
+
+                          {/* Checkbox */}
+                          <button
+                            type="button"
+                            onClick={() => toggleApprove(idx)}
+                            className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
+                              s.approved 
+                                ? "bg-blue-600 border-blue-500 text-white" 
+                                : "bg-white border-neutral-300 text-transparent"
+                            }`}
+                          >
+                            <Check className="h-3.5 w-3.5 stroke-[3]" />
+                          </button>
+
+                          {/* Slide Type Badge */}
+                          <span className="text-xs font-black tracking-widest text-blue-600 uppercase">
+                            {s.type}
+                          </span>
                         </div>
 
-                        {/* Checkbox */}
-                        <button
-                          type="button"
-                          onClick={() => toggleApprove(idx)}
-                          className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
-                            s.approved 
-                              ? "bg-blue-600 border-blue-500 text-white" 
-                              : "bg-white border-neutral-300 text-transparent"
-                          }`}
-                        >
-                          <Check className="h-3.5 w-3.5 stroke-[3]" />
-                        </button>
-
-                        {/* Slide Type Badge */}
-                        <span className="text-xs font-black tracking-widest text-blue-600 uppercase">
-                          {s.type}
-                        </span>
-                      </div>
-
-                      {/* Targeted AI editing */}
-                      <div className="flex gap-2 items-center flex-1 max-w-md md:justify-end">
-                        <input
-                          type="text"
-                          placeholder="Instruction for AI (optional)..."
-                          value={instVal}
-                          onChange={(e) => setAiInstructions(prev => ({ ...prev, [s.id]: e.target.value }))}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleRegenerateBlock(idx);
-                          }}
-                          className="bg-neutral-50 border border-neutral-200 focus:border-blue-400 rounded-lg px-3 py-1.5 text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none flex-1 max-w-[200px]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (instVal.trim().length >= 2) {
-                              handleRegenerateBlock(idx);
-                            } else {
-                              handleRegenerateBlock(idx, "Regenerate this slide with fresh content");
-                            }
-                          }}
-                          disabled={isItemRegenerating}
-                          className="px-3 py-1.5 bg-white border border-neutral-200 text-neutral-700 text-xs font-semibold rounded-lg hover:bg-neutral-50 transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
-                          title="Regenerate this slide"
-                        >
-                          <RefreshCw className={`h-3 w-3 ${isItemRegenerating ? "animate-spin" : ""}`} />
-                          Regenerate
-                        </button>
-                        {!instVal && (
+                        {/* Targeted AI editing */}
+                        <div className="flex gap-2 items-center flex-1 max-w-md md:justify-end">
+                          <input
+                            type="text"
+                            placeholder="Instruction for AI (optional)..."
+                            value={instVal}
+                            onChange={(e) => setAiInstructions(prev => ({ ...prev, [s.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRegenerateBlock(idx);
+                            }}
+                            className="bg-neutral-50 border border-neutral-200 focus:border-blue-400 rounded-lg px-3 py-1.5 text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none flex-1 max-w-[200px]"
+                          />
                           <button
                             type="button"
-                            onClick={() => handleRegenerateBlock(idx, "Regenerate this slide with fresh content")}
+                            onClick={() => {
+                              if (instVal.trim().length >= 2) {
+                                handleRegenerateBlock(idx);
+                              } else {
+                                handleRegenerateBlock(idx, "Regenerate this slide with fresh content");
+                              }
+                            }}
                             disabled={isItemRegenerating}
-                            className="p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
-                            title="Quick regenerate without instruction"
+                            className="px-3 py-1.5 bg-white border border-neutral-200 text-neutral-700 text-xs font-semibold rounded-lg hover:bg-neutral-50 transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
+                            title="Regenerate this slide"
                           >
-                            <RefreshCw className={`h-3.5 w-3.5 ${isItemRegenerating ? "animate-spin" : ""}`} />
+                            <RefreshCw className={`h-3 w-3 ${isItemRegenerating ? "animate-spin" : ""}`} />
+                            Regenerate
                           </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Headline and text content */}
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        value={s.userTitle}
-                        onChange={(e) => handleTextChange(idx, "userTitle", e.target.value)}
-                        placeholder="Slide Headline (Use *italics* for serif highlights)"
-                        className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-4 py-2.5 text-sm text-neutral-900 font-bold focus:outline-none"
-                      />
-                      <textarea
-                        rows={2}
-                        value={s.userBody}
-                        onChange={(e) => handleTextChange(idx, "userBody", e.target.value)}
-                        placeholder="Slide text content..."
-                        className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-4 py-2.5 text-sm text-neutral-600 font-medium focus:outline-none leading-relaxed"
-                      />
-                    </div>
-
-                    {/* Actions and deletion panel */}
-                    <div className="flex justify-between items-center pt-2">
-                      <div className="flex gap-2">
-                        <select
-                          value={s.type}
-                          onChange={(e) => {
-                            const updated = [...slides];
-                            updated[idx].type = e.target.value as "COVER" | "CONTENT" | "CLOSING";
-                            setSlides(updated);
-                            saveDraftLocally(updated);
-                          }}
-                          className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 focus:outline-none"
-                        >
-                          <option value="COVER">COVER</option>
-                          <option value="CONTENT">CONTENT</option>
-                          <option value="CLOSING">CLOSING</option>
-                        </select>
-
-                        {s.type === "CONTENT" && (
-                          <div className="flex items-center gap-1.5 ml-2">
-                            <span className="text-[10px] uppercase tracking-wider font-extrabold text-neutral-400">Visual:</span>
-                            <select
-                              value={s.visualType || "text-only"}
-                              onChange={(e) => handleVisualTypeChange(idx, e.target.value as VisualType)}
-                              className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 focus:outline-none"
+                          {!instVal && (
+                            <button
+                              type="button"
+                              onClick={() => handleRegenerateBlock(idx, "Regenerate this slide with fresh content")}
+                              disabled={isItemRegenerating}
+                              className="p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                              title="Quick regenerate without instruction"
                             >
-                              <option value="text-only">Text Only</option>
-                              <option value="quote">Quote Block</option>
-                              <option value="stat">Big Stat</option>
-                              <option value="step-chain">Step Chain</option>
-                              <option value="venn">Venn Diagram</option>
-                              <option value="wheel">Wheel Hub</option>
-                              <option value="concentric">Concentric Hierarchy</option>
-                              <option value="icon-grid">Icon Grid</option>
-                              <option value="table">Comparison Table</option>
-                            </select>
-                            {Boolean((s.visualData as Record<string, unknown>)?.loading) && (
-                              <span className="text-[10px] text-neutral-500 font-bold animate-pulse flex items-center gap-1">
-                                <RefreshCw className="h-2.5 w-2.5 animate-spin text-blue-500" />
-                                Extracting...
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {s.isEdited && (
-                          <button
-                            type="button"
-                            onClick={() => resetToAI(idx)}
-                            className="text-[10px] text-blue-600 hover:text-blue-800 font-bold bg-blue-50 hover:bg-blue-100/60 border border-blue-100 px-2 py-1 rounded"
-                          >
-                            Reset to AI
-                          </button>
-                        )}
+                              <RefreshCw className={`h-3.5 w-3.5 ${isItemRegenerating ? "animate-spin" : ""}`} />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => deleteSlide(idx)}
-                        className="text-neutral-400 hover:text-red-500 p-1 hover:bg-red-50 rounded transition-all"
-                        title="Delete Slide"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                      {/* Headline and text content */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            value={s.userTitle}
+                            onChange={(e) => handleTextChange(idx, "userTitle", e.target.value)}
+                            placeholder="Slide Headline (Use *italics* for serif highlights)"
+                            className="flex-1 bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-4 py-2.5 text-sm text-neutral-900 font-bold focus:outline-none"
+                          />
+                          {s.type === "COVER" && (
+                            <button
+                              type="button"
+                              onClick={() => handleGetAlternatives(idx, "COVER")}
+                              className="px-2.5 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100/60 rounded-xl text-[10px] font-bold border border-blue-100 flex items-center gap-1 cursor-pointer transition-all shrink-0 animate-pulse"
+                            >
+                              <Sparkles className="h-3 w-3 text-blue-500" />
+                              Hooks
+                            </button>
+                          )}
+                          {s.type === "CLOSING" && (
+                            <button
+                              type="button"
+                              onClick={() => handleGetAlternatives(idx, "CLOSING")}
+                              className="px-2.5 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100/60 rounded-xl text-[10px] font-bold border border-blue-100 flex items-center gap-1 cursor-pointer transition-all shrink-0 animate-pulse"
+                            >
+                              <Sparkles className="h-3 w-3 text-blue-500" />
+                              CTAs
+                            </button>
+                          )}
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={s.userBody}
+                          onChange={(e) => handleTextChange(idx, "userBody", e.target.value)}
+                          placeholder="Slide text content..."
+                          className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-4 py-2.5 text-sm text-neutral-600 font-medium focus:outline-none leading-relaxed"
+                        />
+                      </div>
 
+                      {/* Actions and deletion panel */}
+                      <div className="flex justify-between items-center pt-2">
+                        <div className="flex gap-2">
+                          <select
+                            value={s.type}
+                            onChange={(e) => {
+                              const updated = [...slides];
+                              updated[idx].type = e.target.value as "COVER" | "CONTENT" | "CLOSING";
+                              setSlides(updated);
+                              saveDraftLocally(updated);
+                            }}
+                            className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 focus:outline-none"
+                          >
+                            <option value="COVER">COVER</option>
+                            <option value="CONTENT">CONTENT</option>
+                            <option value="CLOSING">CLOSING</option>
+                          </select>
+
+                          {s.type === "CONTENT" && (
+                            <div className="flex items-center gap-1.5 ml-2">
+                              <span className="text-[10px] uppercase tracking-wider font-extrabold text-neutral-400">Visual:</span>
+                              <select
+                                value={s.visualType || "text-only"}
+                                onChange={(e) => handleVisualTypeChange(idx, e.target.value as VisualType)}
+                                className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 focus:outline-none"
+                              >
+                                <optgroup label="Text & Code">
+                                  <option value="text-only">Text Only</option>
+                                  <option value="code-block">Code Block</option>
+                                  <option value="quote">Quote Block</option>
+                                </optgroup>
+                                <optgroup label="Process & Flow">
+                                  <option value="step-chain">Step Chain</option>
+                                  <option value="flowchart">Flowchart</option>
+                                  <option value="timeline">Timeline</option>
+                                </optgroup>
+                                <optgroup label="Structure & Compare">
+                                  <option value="venn">Venn Diagram</option>
+                                  <option value="wheel">Wheel Hub</option>
+                                  <option value="concentric">Concentric Hierarchy</option>
+                                  <option value="table">Comparison Table</option>
+                                  <option value="before-after">Before / After</option>
+                                  <option value="architecture">Architecture</option>
+                                  <option value="sequence">Sequence Diagram</option>
+                                </optgroup>
+                                <optgroup label="Highlights & Visual">
+                                  <option value="stat">Big Stat</option>
+                                  <option value="mini-chart">Mini Chart</option>
+                                  <option value="icon-grid">Icon Grid</option>
+                                  <option value="image-grid">Image Grid</option>
+                                </optgroup>
+                              </select>
+                              {Boolean((s.visualData as Record<string, unknown>)?.loading) && (
+                                <span className="text-[10px] text-neutral-500 font-bold animate-pulse flex items-center gap-1">
+                                  <RefreshCw className="h-2.5 w-2.5 animate-spin text-blue-500" />
+                                  Extracting...
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {s.isEdited && (
+                            <button
+                              type="button"
+                              onClick={() => resetToAI(idx)}
+                              className="text-[10px] text-blue-600 hover:text-blue-800 font-bold bg-blue-50 hover:bg-blue-100/60 border border-blue-100 px-2 py-1 rounded"
+                            >
+                              Reset to AI
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteSlide(idx)}
+                          className="text-neutral-400 hover:text-red-500 p-1 hover:bg-red-50 rounded transition-all"
+                          title="Delete Slide"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Quality Scorecard Widget (Right Column) */}
+              <div className="w-full lg:w-[280px] shrink-0 space-y-4 sticky top-20">
+                <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                    <span className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Quality Score</span>
+                    <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg ${
+                      qualityReport.score >= 80 ? "bg-green-50 text-green-700 border border-green-200" :
+                      qualityReport.score >= 50 ? "bg-yellow-50 text-yellow-700 border border-yellow-200" :
+                      "bg-red-50 text-red-700 border border-red-200"
+                    }`}>
+                      {qualityReport.score}/100
+                    </span>
                   </div>
-                );
-              })}
+
+                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                    {qualityReport.suggestions.length === 0 ? (
+                      <div className="text-center py-4 space-y-1.5">
+                        <Check className="h-8 w-8 text-green-500 mx-auto" />
+                        <p className="text-xs text-neutral-500 font-bold">Excellent Copywriting!</p>
+                      </div>
+                    ) : (
+                      qualityReport.suggestions.map((sug, sIdx) => (
+                        <div key={sug.id || sIdx} className={`p-2.5 rounded-lg border text-[11px] font-medium leading-relaxed ${
+                          sug.type === "error" ? "bg-red-50/50 border-red-100 text-red-700" :
+                          sug.type === "warning" ? "bg-yellow-50/50 border-yellow-100 text-yellow-800" :
+                          "bg-green-50/50 border-green-100 text-green-800"
+                        }`}>
+                          <p>{sug.text}</p>
+                          {sug.actionText && sug.slideIndex !== undefined && (
+                            <button
+                              type="button"
+                              onClick={() => autoFixQuality(sug.slideIndex!, sug.fixType!)}
+                              className="mt-1.5 px-2 py-1 bg-white hover:bg-neutral-50 border border-neutral-200 rounded text-[9px] font-bold text-neutral-700 flex items-center gap-1 transition-all"
+                            >
+                              <Sparkles className="h-2.5 w-2.5 text-blue-500" />
+                              {sug.actionText}
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Bottom Actions */}
-            <div className="flex justify-between items-center pt-4">
+            <div className="flex justify-between items-center pt-4 border-t border-neutral-100">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-5 py-2.5 text-neutral-600 hover:text-neutral-900 text-sm font-bold flex items-center gap-1.5 transition-all"
+                className="px-5 py-2.5 text-neutral-600 hover:text-neutral-900 text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 Back
               </button>
@@ -1741,7 +2471,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleProceedToTheme}
-                className="px-8 py-3 bg-[rgb(130,161,246)] hover:bg-[rgb(114,152,246)] text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-2"
+                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
               >
                 Choose Theme
                 <ArrowRight className="h-4 w-4" />
@@ -1767,353 +2497,44 @@ export default function Home() {
               <div className="flex-1 w-full space-y-6">
                 
                 {/* Theme Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  
-                  {/* Monochrome theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("monochrome");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "monochrome"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-[#0d0d0d] flex items-center justify-center p-4">
-                      <span className="text-lg font-normal text-white tracking-wide font-serif">Monochrome</span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Monochrome</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Black background, white centered text, minimal.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Soft Gradient theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("soft-gradient");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "soft-gradient"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-gradient-to-tr from-purple-400 to-pink-400 flex items-center justify-center p-4">
-                      <span className="text-lg font-bold text-white tracking-wide font-sans">Soft Gradient</span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Soft Gradient</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Organic gradient, heavy headline type.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Warm Editorial theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("warm-editorial");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "warm-editorial"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-[#f5f2eb] flex items-center justify-center p-4">
-                      <span className="text-lg font-bold text-[#1e1b18] tracking-tight font-serif">Warm Editorial</span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Warm Editorial</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Cream background, elegant serif titles, terracotta red highlights.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Mesh Glow theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("mesh-glow");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "mesh-glow"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-white flex items-center justify-center p-4 relative overflow-hidden">
-                      <div className="absolute -top-10 -left-10 w-32 h-32 bg-pink-400 rounded-full mix-blend-multiply filter blur-2xl opacity-20"></div>
-                      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-pink-500 rounded-full mix-blend-multiply filter blur-2xl opacity-20"></div>
-                      <span className="text-xl font-bold text-pink-500 absolute top-2 left-4">*</span>
-                      <span className="text-lg font-black text-neutral-950 tracking-tighter font-sans z-10">Mesh Glow</span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Mesh Glow</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        White base, 10% corner aura in pink/purple, clean.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Cyber Horizon theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("cyber-horizon");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "cyber-horizon"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-gradient-to-br from-[#0c0a09] to-[#1c1917] flex items-center justify-center p-4 relative border-b border-neutral-800">
-                      <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-[#ea580c] shadow-[0_0_8px_#ea580c]" />
-                      <span className="text-lg font-bold text-white tracking-wide font-sans text-center uppercase">Cyber Horizon</span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Cyber Horizon</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Pitch-black grid, orange-red radial glows, ultra-bold headers, 3D spheres.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Linen & Rust theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("linen-rust");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "linen-rust"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-[#d8d7cf] flex flex-col items-center justify-center p-4">
-                      <span className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase mb-0.5">* Editorial *</span>
-                      <span className="text-xl font-normal text-[#c5563c] tracking-normal font-serif italic">Linen & Rust</span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Linen & Rust</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Warm oatmeal, terracotta accents, handwritten scripts, wavy path sequence.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Neo-Brutalism theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("neo-brutalism");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "neo-brutalism"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-[#F5F3EE] flex items-center justify-center p-4 border-b-[3px] border-[#161616]">
-                      <span className="text-lg font-black text-[#161616] uppercase tracking-tight" style={{ transform: "rotate(-1deg)" }}>Neo-Brutalism</span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Neo-Brutalism</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Off-white canvas, hard shadows, thick borders, bold accent color.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Neomorphism theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("neomorphism");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "neomorphism"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-[#E4E0DA] flex items-center justify-center p-4">
-                      <div style={{ boxShadow: "-6px -6px 12px rgba(255,255,255,0.6), 6px 6px 12px rgba(0,0,0,0.1)", borderRadius: "16px", padding: "12px 24px", background: "#E4E0DA" }}>
-                        <span className="text-lg font-bold text-[#2B2B2B] tracking-tight">Neomorphism</span>
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Neomorphism</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Soft extruded surfaces, dual shadows, monochromatic tactility.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Frosted Grid theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("frosted-grid");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "frosted-grid"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-neutral-50 flex items-center justify-center p-4 relative overflow-hidden">
-                      {/* background grid lines */}
-                      <div className="absolute inset-0 opacity-10 flex space-x-[20px]">
-                         {[...Array(10)].map((_,i) => <div key={i} className="w-px h-full bg-black"></div>)}
-                      </div>
-                      <div className="absolute -bottom-10 right-0 left-0 h-24 bg-purple-500 rounded-t-full filter blur-xl opacity-60"></div>
-                      <div className="backdrop-blur-sm bg-white/70 border-t border-l border-white shadow-sm rounded-xl px-4 py-2 z-10">
-                        <span className="text-sm font-bold text-neutral-900 tracking-tight">Frosted Grid</span>
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center border-t border-neutral-100">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Frosted Grid</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        White line grid top, frosted glass waves over purple bottom.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* New Glassmorphism theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("glassmorphism");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "glassmorphism"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-gradient-to-br from-[#e2e8f0] to-[#f8fafc] flex items-center justify-center p-4">
-                      <div className="backdrop-blur-md bg-white/50 border-t border-l border-white/90 rounded-2xl px-5 py-2.5 shadow-[0_12px_24px_rgba(15,23,42,0.04)]">
-                        <span className="text-lg font-bold text-slate-800 tracking-tight">Glassmorphism</span>
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Glassmorphism</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Soft misty-blue background, frosted panels, clean aesthetic.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Liquid Glass theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("liquid-glass");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "liquid-glass"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-[#f8fafc] flex items-center justify-center p-4">
-                      <div className="bg-white/40 border border-white/90 rounded-full px-6 py-2 shadow-inner">
-                        <span className="text-lg font-bold text-neutral-900 tracking-tight drop-shadow-sm">Liquid Glass</span>
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Liquid Glass</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Thick refractive glass, pill-shaped UI, vibrant gradient accents.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Sketch theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("sketch");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-[#fdfaf6] shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "sketch"
-                        ? "border-[#2d2d2d] ring-2 ring-[#2d2d2d]/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full flex items-center justify-center p-4 relative overflow-hidden" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(45,45,45,0.05) 5px, rgba(45,45,45,0.05) 6px)" }}>
-                      <div className="bg-[#fdfaf6] border-2 border-[#2d2d2d] px-5 py-2.5 transform -rotate-2 relative">
-                         <div className="absolute inset-0 border border-[#2d2d2d] transform rotate-1"></div>
-                        <span className="text-xl font-bold text-[#2d2d2d] tracking-tight" style={{ fontFamily: "cursive, system-ui" }}>Sketch</span>
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center bg-white border-t border-neutral-100">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Sketch</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Hand-drawn hatching, rough borders, and irregular alignments.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Wireframe 3D theme card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThemeName("wireframe-3d");
-                      saveDraftLocally();
-                    }}
-                    className={`border rounded-2xl overflow-hidden text-left flex flex-col justify-between h-[220px] bg-white shadow-sm hover:shadow-md transition-all duration-350 cursor-pointer ${
-                      themeName === "wireframe-3d"
-                        ? "border-blue-500 ring-2 ring-blue-500/10"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="h-28 w-full bg-white flex items-center justify-center p-4 relative overflow-hidden">
-                      <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 400 160" fill="none">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                          <line key={`h-${i}`} x1={0} y1={i * 30} x2={400} y2={i * 30} stroke="#000" strokeWidth="0.5" />
-                        ))}
-                        {Array.from({ length: 14 }).map((_, i) => (
-                          <line key={`v-${i}`} x1={i * 30} y1={0} x2={i * 30} y2={160} stroke="#000" strokeWidth="0.5" />
-                        ))}
-                      </svg>
-                      <div className="border-2 border-black px-5 py-2.5 bg-white relative z-10">
-                        <span className="text-sm font-bold text-black tracking-tight font-mono">Wireframe 3D</span>
-                      </div>
-                      <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-black"></div>
-                      <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-black"></div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-center">
-                      <h3 className="font-extrabold text-neutral-900 text-xs">Wireframe 3D</h3>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 font-medium leading-relaxed">
-                        Isometric grid, thin black lines, monospace labels, technical blueprint style.
-                      </p>
-                    </div>
-                  </button>
-
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { name: "Founder / Startup", mappedTheme: "neo-brutalism", desc: "Loud, bold typography, offset containers, and strong borders.", bg: "bg-[#F5F3EE] text-[#161616] border-b-[2px] border-[#161616]", labelFont: "font-black uppercase tracking-tight" },
+                    { name: "Minimal Professional", mappedTheme: "monochrome", desc: "Monochrome, high negative space, sleek layout.", bg: "bg-[#0d0d0d] text-white", labelFont: "font-normal font-serif" },
+                    { name: "Bold Creator", mappedTheme: "soft-gradient", desc: "Vibrant gradients, heavy headline, organic shapes.", bg: "bg-gradient-to-tr from-purple-400 to-pink-400 text-white", labelFont: "font-bold font-sans" },
+                    { name: "Educational / Course", mappedTheme: "frosted-grid", desc: "Structured blueprints, clean grid layouts.", bg: "bg-neutral-50 text-neutral-900", labelFont: "font-bold font-sans border border-neutral-200 px-2 py-0.5 bg-white/70 shadow-sm rounded-lg" },
+                    { name: "SaaS / Product", mappedTheme: "liquid-glass", desc: "Rounded containers, soft glossy styling.", bg: "bg-[#f8fafc] text-neutral-900 border border-white/90 shadow-inner", labelFont: "font-bold tracking-tight shadow-inner px-2 py-0.5 rounded-full" },
+                    { name: "Newsletter / Editorial", mappedTheme: "warm-editorial", desc: "Classic type, editorial hooks, background warmth.", bg: "bg-[#f5f2eb] text-[#1e1b18]", labelFont: "font-bold font-serif" },
+                    { name: "Agency / Marketing", mappedTheme: "sketch", desc: "Creative pencil strokes, artistic layouts.", bg: "bg-[#fdfaf6] text-[#2d2d2d] border border-neutral-300", labelFont: "font-bold px-2 py-0.5 border border-[#2d2d2d] bg-white text-[9px]" },
+                    { name: "Dark Premium", mappedTheme: "cyber-horizon", desc: "Pitch-black base, glowing accents, wireframes.", bg: "bg-neutral-950 text-white border border-neutral-800", labelFont: "font-bold uppercase tracking-wide text-orange-500" }
+                  ].map((family) => {
+                    const isSelected = themeName === family.mappedTheme;
+                    return (
+                      <button
+                        key={family.mappedTheme}
+                        type="button"
+                        onClick={() => {
+                          setThemeName(family.mappedTheme as any);
+                          saveDraftLocally();
+                        }}
+                        className={`border rounded-xl overflow-hidden text-left flex flex-col justify-between h-[130px] bg-white shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+                          isSelected
+                            ? "border-blue-500 ring-2 ring-blue-500/10"
+                            : "border-neutral-200 hover:border-neutral-300"
+                        }`}
+                      >
+                        <div className={`h-12 w-full flex items-center justify-center p-2 relative overflow-hidden ${family.bg}`}>
+                          <span className={`text-[9px] text-center leading-tight truncate ${family.labelFont}`}>{family.name.split(" / ")[0]}</span>
+                        </div>
+                        <div className="p-2 flex-1 flex flex-col justify-center">
+                          <h3 className="font-extrabold text-neutral-900 text-[10px] leading-tight truncate">{family.name}</h3>
+                          <p className="text-[9px] text-neutral-400 mt-0.5 font-medium leading-snug line-clamp-2">
+                            {family.desc}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Social Username Handle card */}
@@ -2159,15 +2580,25 @@ export default function Home() {
                   <div className="grid grid-cols-5 gap-2">
                     {(["background", "text", "primary", "secondary", "tertiary"] as const).map((role) => {
                       const label = { background: "Bg", text: "Text", primary: "Primary", secondary: "Secondary", tertiary: "Tertiary" }[role];
-                      const currentVal = paletteOverride?.[role] || "";
+                      const defaults = THEME_DEFAULT_COLORS[themeName] || THEME_DEFAULT_COLORS["monochrome"];
+                      const currentVal = paletteOverride?.[role] || defaults[role];
+                      
                       return (
                         <div key={role} className="flex flex-col items-center gap-1.5">
-                          <div className="relative w-8 h-8 rounded-full overflow-hidden border border-neutral-300" style={{ backgroundColor: currentVal || "#e5e7eb" }}>
+                          <div className="relative w-8 h-8 rounded-full overflow-hidden border border-neutral-300 shadow-sm" style={{ backgroundColor: currentVal }}>
                             <input
                               type="color"
-                              value={currentVal || "#cccccc"}
+                              value={currentVal}
                               onChange={(e) => {
-                                const next = { ...(paletteOverride || PALETTE_PRESETS[0]), [role]: e.target.value, name: paletteOverride?.name || "Custom" };
+                                const next = {
+                                  background: paletteOverride?.background || defaults.background,
+                                  text: paletteOverride?.text || defaults.text,
+                                  primary: paletteOverride?.primary || defaults.primary,
+                                  secondary: paletteOverride?.secondary || defaults.secondary,
+                                  tertiary: paletteOverride?.tertiary || defaults.tertiary,
+                                  [role]: e.target.value,
+                                  name: "Custom"
+                                };
                                 setPaletteOverride(next);
                                 saveDraftLocally();
                               }}
@@ -2189,26 +2620,176 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
+                {/* Controlled Variations Section */}
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm space-y-5">
+                  <h3 className="text-xs font-black text-neutral-800 uppercase tracking-wider block">Controlled Variation Overrides</h3>
+                  
+                  {/* Accent Color picker */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-neutral-600 block">Override Theme Accent Color</span>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-full border border-neutral-300 relative overflow-hidden shadow-sm"
+                        style={{ backgroundColor: customAccentColor || "#2563eb" }}
+                      >
+                        <input
+                          type="color"
+                          value={customAccentColor || "#2563eb"}
+                          onChange={(e) => {
+                            setCustomAccentColor(e.target.value);
+                            saveDraftLocally();
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                      </div>
+                      <span className="text-xs text-neutral-500 font-bold">{customAccentColor || "Default theme accent"}</span>
+                      {customAccentColor && (
+                        <button
+                          type="button"
+                          onClick={() => { setCustomAccentColor(""); saveDraftLocally(); }}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-bold cursor-pointer"
+                        >
+                          Reset Color
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Font pairing */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-neutral-600 block">Override Fonts</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: "Outfit + Outfit (Sensory/Clean)", val: "Outfit + Outfit" },
+                        { label: "Jakarta + Jakarta (Sensory/Modern)", val: "Plus Jakarta Sans + Plus Jakarta Sans" },
+                        { label: "Lora + Lora (Serif/Classic)", val: "Lora + Lora" },
+                        { label: "Playfair + Outfit (Serif/Editorial)", val: "Playfair Display + Outfit" },
+                        { label: "Cinzel + Jakarta (Decorative)", val: "Cinzel + Plus Jakarta Sans" },
+                        { label: "Pacifico + Outfit (Script/Expressive)", val: "Pacifico + Outfit" },
+                        { label: "Outfit + Mono (Tech)", val: "Outfit + JetBrains Mono" },
+                        { label: "Mono + Mono (Developer)", val: "JetBrains Mono + JetBrains Mono" }
+                      ].map(item => (
+                        <button
+                          key={item.val}
+                          type="button"
+                          onClick={() => { setCustomFontPairing(item.val); saveDraftLocally(); }}
+                          className={`px-3 py-2.5 border rounded-xl text-xs font-bold text-left transition-all ${
+                            customFontPairing === item.val
+                              ? "border-blue-500 bg-blue-50/50 text-blue-700"
+                              : "border-neutral-200 hover:border-neutral-300 text-neutral-600"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Layout Density */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-neutral-600 block">Override Layout Density</span>
+                    <div className="flex gap-2">
+                      {[
+                        { label: "Compact", val: "compact" },
+                        { label: "Comfortable", val: "comfortable" },
+                        { label: "Minimal", val: "minimal" }
+                      ].map(item => (
+                        <button
+                          key={item.val}
+                          type="button"
+                          onClick={() => { setCustomLayoutDensity(item.val as any); saveDraftLocally(); }}
+                          className={`flex-1 px-3 py-2 border rounded-xl text-center transition-all ${
+                            customLayoutDensity === item.val
+                              ? "border-blue-500 bg-blue-50/50 text-blue-700"
+                              : "border-neutral-200 hover:border-neutral-300 text-neutral-600"
+                          }`}
+                        >
+                          <span className="text-xs font-bold">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Global Images Toggle */}
+                  <div className="flex justify-between items-center border-t border-neutral-100 pt-4">
+                    <span className="text-xs font-bold text-neutral-700">Display Slide Images</span>
+                    <button
+                      type="button"
+                      onClick={() => { setNoImages(!noImages); saveDraftLocally(); }}
+                      className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+                        !noImages ? "bg-blue-500" : "bg-neutral-200"
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-300 ${
+                          !noImages ? "left-6.5" : "left-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
               </div>
+
 
               {/* Right Column: Live Sticky Preview Window */}
               <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-8 space-y-4">
                 <div className="bg-white border border-neutral-200 rounded-3xl p-5 shadow-sm space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
-                      Live Preview (Cover Slide)
+                      Preview (Slide {previewSlideIdx + 1}/{slides.length})
                     </span>
-                    <span className="text-xs text-neutral-400 font-semibold">● Instant</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewSlideIdx(prev => Math.max(0, prev - 1))}
+                        disabled={previewSlideIdx === 0}
+                        className="p-1 border border-neutral-200 hover:border-neutral-300 disabled:opacity-30 rounded-lg text-neutral-600 transition-all cursor-pointer disabled:cursor-not-allowed"
+                        title="Previous Slide"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewSlideIdx(prev => Math.min(slides.length - 1, prev + 1))}
+                        disabled={previewSlideIdx === slides.length - 1}
+                        className="p-1 border border-neutral-200 hover:border-neutral-300 disabled:opacity-30 rounded-lg text-neutral-600 transition-all cursor-pointer disabled:cursor-not-allowed"
+                        title="Next Slide"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="relative aspect-[4/5] bg-neutral-50 border border-neutral-100 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner">
                     {themePreviewUri ? (
-                      <img
-                        src={themePreviewUri}
-                        alt="Live Theme Preview"
-                        className="w-full h-full object-cover transition-opacity duration-300"
-                        style={{ opacity: isGeneratingPreview ? 0.6 : 1 }}
-                      />
+                      <>
+                        <img
+                          src={themePreviewUri}
+                          alt="Live Theme Preview"
+                          className="w-full h-full object-cover transition-opacity duration-300"
+                          style={{ opacity: isGeneratingPreview ? 0.8 : 1 }}
+                        />
+                        {isGeneratingPreview && (
+                          <div className="absolute inset-0 bg-white/20 backdrop-blur-[1px] flex flex-col justify-between p-4 z-20 pointer-events-none animate-in fade-in duration-200">
+                            {/* Linear premium progress bar at top */}
+                            <div className="w-full h-1 bg-neutral-200/50 rounded-full overflow-hidden">
+                              <div className="h-full bg-blue-500 rounded-full w-[150px] animate-shimmer" />
+                            </div>
+                            
+                            {/* Central floating loading indicator */}
+                            <div className="flex-1 flex items-center justify-center">
+                              <div className="bg-white/95 shadow-xl border border-neutral-100 rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
+                                <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                <span className="text-[11px] font-extrabold text-neutral-700 uppercase tracking-wider font-sans">Updating live</span>
+                              </div>
+                            </div>
+                            
+                            {/* Base spacing balance */}
+                            <div className="h-1" />
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="text-center p-6 space-y-2">
                         <p className="text-xs text-neutral-400 font-medium">Select a theme above</p>
@@ -2801,6 +3382,329 @@ export default function Home() {
           />
         );
       })()}
+
+      {/* Brand Kit Modal */}
+      {isBrandKitOpen && (
+        <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-neutral-200 shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-neutral-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-500" />
+                <h3 className="text-lg font-black text-neutral-900">My Brand Kit</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBrandKitOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 rounded-lg transition-all cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 flex-1 overflow-y-auto">
+              <p className="text-xs text-neutral-500 font-medium">
+                Save your branding assets here to automatically pre-populate and style all generated carousels.
+              </p>
+
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">Brand Logo</label>
+                <div className="flex items-center gap-4">
+                  {customLogoUrl ? (
+                    <div className="relative w-16 h-16 border border-neutral-200 rounded-xl overflow-hidden bg-neutral-50 flex items-center justify-center p-2">
+                      <img src={customLogoUrl} className="max-w-full max-h-full object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => { setCustomLogoUrl(""); setBrandKit(prev => ({ ...prev, logoUrl: undefined })); }}
+                        className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-sm"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 border-2 border-dashed border-neutral-200 rounded-xl bg-neutral-50 flex items-center justify-center text-neutral-400">
+                      <ImageIcon className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="brand-logo-file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const base64 = event.target?.result as string;
+                            setCustomLogoUrl(base64);
+                            setBrandKit(prev => ({ ...prev, logoUrl: base64 }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="brand-logo-file"
+                      className="px-3 py-1.5 bg-white border border-neutral-200 text-neutral-700 hover:text-neutral-900 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer inline-block"
+                    >
+                      Upload Image
+                    </label>
+                    <span className="text-[10px] text-neutral-400 block mt-1">PNG, JPG, SVG or WebP. Max 1MB.</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Handle & Website */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="brand-handle" className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">Handle</label>
+                  <input
+                    id="brand-handle"
+                    type="text"
+                    placeholder="@handle"
+                    value={brandKit.handle || ""}
+                    onChange={(e) => setBrandKit({ ...brandKit, handle: e.target.value })}
+                    className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm text-neutral-800 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="brand-website" className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">Website</label>
+                  <input
+                    id="brand-website"
+                    type="text"
+                    placeholder="mywebsite.com"
+                    value={brandKit.website || ""}
+                    onChange={(e) => setBrandKit({ ...brandKit, website: e.target.value })}
+                    className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm text-neutral-800 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Default CTA & Font Pairing */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="brand-cta" className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">Default CTA Text</label>
+                  <input
+                    id="brand-cta"
+                    type="text"
+                    placeholder="Subscribe to my newsletter"
+                    value={brandKit.defaultCTA || ""}
+                    onChange={(e) => setBrandKit({ ...brandKit, defaultCTA: e.target.value })}
+                    className="w-full bg-white border border-neutral-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm text-neutral-800 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider block font-sans">Default Font Pairing</label>
+                  <select
+                    value={brandKit.fontPairing || "Outfit + Outfit"}
+                    onChange={(e) => {
+                      setBrandKit({ ...brandKit, fontPairing: e.target.value });
+                      setCustomFontPairing(e.target.value);
+                    }}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                  >
+                    <option value="Outfit + Outfit">Outfit + Outfit (Sensory / Clean)</option>
+                    <option value="Plus Jakarta Sans + Plus Jakarta Sans">Plus Jakarta Sans + Plus Jakarta Sans (Sensory / Modern)</option>
+                    <option value="Lora + Lora">Lora + Lora (Serif / Classic)</option>
+                    <option value="Playfair Display + Outfit">Playfair Display + Outfit (Serif / Editorial)</option>
+                    <option value="Cinzel + Plus Jakarta Sans">Cinzel + Plus Jakarta Sans (Decorative)</option>
+                    <option value="Pacifico + Outfit">Pacifico + Outfit (Script / Expressive)</option>
+                    <option value="Outfit + JetBrains Mono">Outfit + JetBrains Mono (Tech / Developer)</option>
+                    <option value="JetBrains Mono + JetBrains Mono">JetBrains Mono + JetBrains Mono (Brutalist / Minimal)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Brand Colors */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">Brand Colors</label>
+                <div className="grid grid-cols-4 gap-3 bg-neutral-50 p-3 border border-neutral-200 rounded-2xl">
+                  {([
+                    { role: "primary", label: "Primary / Accent" },
+                    { role: "secondary", label: "Secondary" },
+                    { role: "background", label: "Background" },
+                    { role: "text", label: "Text" }
+                  ] as const).map(item => {
+                    const colorsObj = brandKit.colors || { primary: "#2563eb", secondary: "#475569", background: "#ffffff", text: "#0f172a" };
+                    const currentVal = colorsObj[item.role];
+                    return (
+                      <div key={item.role} className="flex flex-col items-center gap-1">
+                        <div
+                          className="w-10 h-10 rounded-full border border-neutral-300 relative overflow-hidden shadow-sm"
+                          style={{ backgroundColor: currentVal }}
+                        >
+                          <input
+                            type="color"
+                            value={currentVal}
+                            onChange={(e) => {
+                              const newColors = { ...colorsObj, [item.role]: e.target.value };
+                              setBrandKit({ ...brandKit, colors: newColors });
+                              if (item.role === "primary") {
+                                setCustomAccentColor(e.target.value);
+                              }
+                            }}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-neutral-500 text-center">{item.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Defaults: Tone & Theme */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">Default Tone</label>
+                  <select
+                    value={brandKit.defaultTone || "professional"}
+                    onChange={(e) => setBrandKit({ ...brandKit, defaultTone: e.target.value })}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                  >
+                    <option value="professional">Professional</option>
+                    <option value="educational">Educational</option>
+                    <option value="punchy">Punchy</option>
+                    <option value="contrarian">Contrarian</option>
+                    <option value="story-driven">Story-driven</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider block">Default Theme</label>
+                  <select
+                    value={brandKit.defaultTheme || "monochrome"}
+                    onChange={(e) => setBrandKit({ ...brandKit, defaultTheme: e.target.value })}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
+                  >
+                    <option value="monochrome">Monochrome</option>
+                    <option value="soft-gradient">Soft Gradient</option>
+                    <option value="warm-editorial">Warm Editorial</option>
+                    <option value="mesh-glow">Mesh Glow</option>
+                    <option value="cyber-horizon">Cyber Horizon</option>
+                    <option value="linen-rust">Linen & Rust</option>
+                    <option value="neo-brutalism">Neo-Brutalism</option>
+                    <option value="neomorphism">Neomorphism</option>
+                    <option value="frosted-grid">Frosted Grid</option>
+                    <option value="glassmorphism">Glassmorphism</option>
+                    <option value="liquid-glass">Liquid Glass</option>
+                    <option value="sketch">Sketch</option>
+                    <option value="wireframe-3d">Wireframe 3D</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-neutral-100 flex items-center justify-end gap-3 bg-neutral-50/50 rounded-b-3xl">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem("caro_brand_kit");
+                  setBrandKit({});
+                  setCustomLogoUrl("");
+                  setCustomFontPairing("Outfit + Outfit");
+                  setCustomAccentColor("");
+                  setIsBrandKitOpen(false);
+                }}
+                className="px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-500 hover:text-neutral-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Reset Kit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem("caro_brand_kit", JSON.stringify(brandKit));
+                  if (brandKit.handle) setUsername(brandKit.handle);
+                  if (brandKit.website) setWebsiteUrl(brandKit.website);
+                  if (brandKit.defaultTheme) setThemeName(brandKit.defaultTheme as ThemeName);
+                  if (brandKit.fontPairing) setCustomFontPairing(brandKit.fontPairing);
+                  if (brandKit.logoUrl) setCustomLogoUrl(brandKit.logoUrl);
+                  if (brandKit.colors?.primary) setCustomAccentColor(brandKit.colors.primary);
+                  setIsBrandKitOpen(false);
+                }}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alternatives Swapper Modal */}
+      {alternativesSlideIdx !== null && (
+        <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-neutral-200 shadow-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto flex flex-col">
+            <div className="p-6 border-b border-neutral-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-500" />
+                <h3 className="text-lg font-black text-neutral-900">
+                  {alternativesSlideType === "COVER" ? "Alternative Hooks" : "Alternative CTAs"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAlternativesSlideIdx(null);
+                  setAlternativesSlideType(null);
+                  setAlternativesList([]);
+                }}
+                className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 rounded-lg transition-all cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto flex-grow">
+              {isGeneratingAlternatives ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+                  <p className="text-xs text-neutral-500 font-bold">Generating options...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {alternativesList.map((alt, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => applyAlternative(alt.title, alt.body)}
+                      className="border border-neutral-200 rounded-2xl p-4 bg-neutral-50 hover:bg-white hover:border-blue-500 transition-all cursor-pointer shadow-sm group"
+                    >
+                      <h4 className="font-extrabold text-neutral-900 text-sm mb-1 group-hover:text-blue-600 transition-all">
+                        {alt.title}
+                      </h4>
+                      <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+                        {alt.body}
+                      </p>
+                      <span className="text-[10px] text-blue-500 font-bold block mt-2 opacity-0 group-hover:opacity-100 transition-all">
+                        Apply Option
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-neutral-100 flex justify-end bg-neutral-50/50 rounded-b-3xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setAlternativesSlideIdx(null);
+                  setAlternativesSlideType(null);
+                  setAlternativesList([]);
+                }}
+                className="px-4 py-2 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
