@@ -305,7 +305,7 @@ const PanoramicBackground = ({ theme, order = 0, totalSlides = 1 }: { order?: nu
       {theme === "warm-editorial" && (
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "40px 0", opacity: 0.06 }}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={`wl-${i}`} style={{ height: "1px", backgroundColor: "#e05a47", marginLeft: i % 2 === 0 ? "0" : "200px", width: i % 2 === 0 ? "100%" : "calc(100% - 200px)" }} />
+            <div key={`wl-${i}`} style={{ height: "1px", backgroundColor: "#e05a47", marginLeft: i % 2 === 0 ? "0" : "200px", width: i % 2 === 0 ? "1080px" : "880px" }} />
           ))}
         </div>
       )}

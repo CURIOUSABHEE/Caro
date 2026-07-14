@@ -13,6 +13,7 @@ const INVALID_SVG_CSS_PATTERNS = [
   /(?:width|height|min-width|max-width|min-height|max-height)\s*:\s*fit-content/gi,
   /(?:width|height|min-width|max-width|min-height|max-height)\s*:\s*min-content/gi,
   /(?:width|height|min-width|max-width|min-height|max-height)\s*:\s*max-content/gi,
+  /(?:width|height|min-width|max-width|min-height|max-height)\s*:\s*calc\([^)]+\)/gi,
 ];
 
 function sanitizeInvalidCssStyles(svg: string): string {
