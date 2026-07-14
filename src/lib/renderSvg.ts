@@ -4,7 +4,26 @@ import { sanitizeSvgForResvg } from "./sanitize-svg-for-resvg";
 function stripAllClipPaths(svg: string): string {
   return svg
     .replace(/<clipPath[^>]*>[\s\S]*?<\/clipPath>/g, "")
-    .replace(/\s*clip-path="url\(#[^"]+\)"/g, "");
+    .replace(/\s*clip-path="url\(#[^"]+\)"/g, "")
+    .replace(/<mask[^>]*>[\s\S]*?<\/mask>/g, "")
+    .replace(/\s*mask="url\(#[^"]+\)"/g, "");
+}
+
+const INVALID_SVG_CSS_PATTERNS = [
+  /(?:width|height|min-width|max-width|min-height|max-height)\s*:\s*fit-content/gi,
+  /(?:width|height|min-width|max-width|min-height|max-height)\s*:\s*min-content/gi,
+  /(?:width|height|min-width|max-width|min-height|max-height)\s*:\s*max-content/gi,
+];
+
+function sanitizeInvalidCssStyles(svg: string): string {
+  let result = svg;
+  for (const pattern of INVALID_SVG_CSS_PATTERNS) {
+    result = result.replace(pattern, (match) => {
+      const prop = match.split(":")[0].trim();
+      return `${prop}: auto`;
+    });
+  }
+  return result;
 }
 
 let renderLock: Promise<void> | null = null;
@@ -44,7 +63,8 @@ export async function renderWithResvg(svg: string, scale: number = 1): Promise<s
     return `data:image/png;base64,${base64}`;
   } catch (err) {
     try {
-      const fallback = stripAllClipPaths(svg);
+      let fallback = stripAllClipPaths(svg);
+      fallback = sanitizeInvalidCssStyles(fallback);
       const base64 = renderPng(fallback, scale);
       return `data:image/png;base64,${base64}`;
     } catch (fallbackErr) {

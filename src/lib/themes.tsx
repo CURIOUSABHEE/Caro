@@ -3288,7 +3288,7 @@ const insetCard = (content: React.ReactNode, extraStyle: React.CSSProperties = {
         <ProgressBar order={order} totalSlides={totalSlides} accentColor={accent} />
 
         {type === "COVER" ? null : (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 18px", backgroundColor: glassFill, border: `1px solid ${glassBorder}`, borderTop: `1px solid ${glassBorderTop}`, borderLeft: `1px solid ${glassBorderTop}`, borderRadius: "9999px", width: "fit-content", boxShadow: "0 10px 20px rgba(0,0,0,0.05)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 18px", backgroundColor: glassFill, border: `1px solid ${glassBorder}`, borderTop: `1px solid ${glassBorderTop}`, borderLeft: `1px solid ${glassBorderTop}`, borderRadius: "9999px", width: "auto", boxShadow: "0 10px 20px rgba(0,0,0,0.05)" }}>
             <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "2px", color: accent, textTransform: "uppercase" }}>
               {type === "CLOSING" ? "Conclusion" : "Insight"}
             </span>
