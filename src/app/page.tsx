@@ -137,7 +137,7 @@ const convertBase64PngToJpg = (pngBase64Uri: string): Promise<string> => {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL("image/jpeg", 0.9));
+      resolve(canvas.toDataURL("image/jpeg", 0.95));
     };
     img.onerror = (err) => reject(err);
     img.src = pngBase64Uri;
@@ -1354,8 +1354,8 @@ export default function Home() {
     setError(null);
 
     try {
-      // Re-render at 2x for high quality export
-      const hqImages = await renderTheme(themeName, 2) || renderedImages;
+      // Re-render at 3x for high quality export
+      const hqImages = await renderTheme(themeName, 3) || renderedImages;
       const approvedExport = slides.filter(s => s.approved);
       const payloadImages = await Promise.all(
         indicesToExport.map(async (idx) => {
@@ -1429,15 +1429,28 @@ export default function Home() {
       const { default: jsPDF } = await import("jspdf");
       const doc = new jsPDF({ unit: 'pt', format: [1080, 1350], compress: true });
 
+      // Re-render at 3x for crystal-clear PDF export
+      const hqImages = await renderTheme(themeName, 3) || renderedImages;
+
       for (let i = 0; i < indicesToExport.length; i++) {
         const idx = indicesToExport[i];
-        const dataUri = renderedImages[idx];
+        const pngDataUri = hqImages[idx];
 
         if (i > 0) {
           doc.addPage([1080, 1350]);
         }
 
-        doc.addImage(dataUri, "PNG", 0, 0, 1080, 1350);
+        // Convert to high-quality JPEG for smaller PDF with equivalent visual quality
+        let imageUri = pngDataUri;
+        let imageFormat: "PNG" | "JPEG" = "PNG";
+        try {
+          imageUri = await convertBase64PngToJpg(pngDataUri);
+          imageFormat = "JPEG";
+        } catch {
+          // Fall back to PNG if conversion fails
+        }
+
+        doc.addImage(imageUri, imageFormat, 0, 0, 1080, 1350);
       }
 
       const baseName = extractedData?.title ? sanitizeFilename(extractedData.title) : "carousel-export";
