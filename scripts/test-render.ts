@@ -1,7 +1,7 @@
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 import { loadAllFonts } from "../src/lib/fonts";
-import { renderThemeSlide } from "../src/lib/themes";
+import { renderThemeSlide } from "../src/components/carousel/render-slide";
 
 const themes = [
   "monochrome", "soft-gradient", "warm-editorial", "mesh-glow",

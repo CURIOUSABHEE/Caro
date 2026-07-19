@@ -9,6 +9,7 @@ const FONT_URLS = {
   outfitRegular: "https://cdn.jsdelivr.net/npm/@fontsource/outfit/files/outfit-latin-400-normal.woff",
   outfitBold: "https://cdn.jsdelivr.net/npm/@fontsource/outfit/files/outfit-latin-700-normal.woff",
   playfairRegular: "https://cdn.jsdelivr.net/npm/@fontsource/playfair-display/files/playfair-display-latin-400-normal.woff",
+  playfairBold: "https://cdn.jsdelivr.net/npm/@fontsource/playfair-display/files/playfair-display-latin-700-normal.woff",
   playfairItalic: "https://cdn.jsdelivr.net/npm/@fontsource/playfair-display/files/playfair-display-latin-400-italic.woff",
   caveatRegular: "https://cdn.jsdelivr.net/npm/@fontsource/caveat/files/caveat-latin-400-normal.woff",
   jetbrainsMonoRegular: "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff",
@@ -22,13 +23,12 @@ const FONT_URLS = {
   pacificoRegular: "https://cdn.jsdelivr.net/npm/@fontsource/pacifico/files/pacifico-latin-400-normal.woff",
 };
 
-export async function loadFont(name: keyof typeof FONT_URLS): Promise<ArrayBuffer> {
+export async function loadFont(name: keyof typeof FONT_URLS): Promise<ArrayBuffer | null> {
   if (fontCache[name]) {
     return fontCache[name];
   }
 
   const primaryUrl = FONT_URLS[name];
-  // Setup backup url mirror on unpkg
   const backupUrl = primaryUrl.replace("https://cdn.jsdelivr.net/npm/", "https://unpkg.com/");
 
   const maxRetries = 3;
@@ -39,7 +39,6 @@ export async function loadFont(name: keyof typeof FONT_URLS): Promise<ArrayBuffe
     console.log(`[FontLoader] Fetching font ${name} (attempt ${attempt}/${maxRetries}) from ${url}...`);
 
     const controller = new AbortController();
-    // Increase timeout to 30s to accommodate slower or fluctuating connections
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
@@ -55,14 +54,14 @@ export async function loadFont(name: keyof typeof FONT_URLS): Promise<ArrayBuffe
       lastError = error;
       console.error(`[FontLoader] Attempt ${attempt} failed for font ${name}:`, error.message || error);
       
-      // Exponential backoff delay before retrying
       if (attempt < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       }
     }
   }
 
-  throw new Error(`Font loading failed for ${name} after ${maxRetries} attempts: ${lastError?.message || lastError}`);
+  console.error(`[FontLoader] Font ${name} failed after ${maxRetries} attempts — skipping (last error: ${lastError?.message || lastError})`);
+  return null;
 }
 
 export interface SatoriFont {
@@ -76,7 +75,7 @@ export async function loadAllFonts(): Promise<SatoriFont[]> {
   try {
     const [
       outfitReg, outfitBld,
-      playfairReg, playfairItal,
+      playfairReg, playfairBld, playfairItal,
       caveatReg,
       jbMonoReg, jbMonoBld,
       loraReg, loraBld,
@@ -87,6 +86,7 @@ export async function loadAllFonts(): Promise<SatoriFont[]> {
       loadFont("outfitRegular"),
       loadFont("outfitBold"),
       loadFont("playfairRegular"),
+      loadFont("playfairBold"),
       loadFont("playfairItalic"),
       loadFont("caveatRegular"),
       loadFont("jetbrainsMonoRegular"),
@@ -100,94 +100,36 @@ export async function loadAllFonts(): Promise<SatoriFont[]> {
       loadFont("pacificoRegular"),
     ]);
 
-    return [
-      {
-        name: "Outfit",
-        data: outfitReg,
-        weight: 400,
-        style: "normal",
-      },
-      {
-        name: "Outfit",
-        data: outfitBld,
-        weight: 700,
-        style: "normal",
-      },
-      {
-        name: "Playfair Display",
-        data: playfairReg,
-        weight: 400,
-        style: "normal",
-      },
-      {
-        name: "Playfair Display",
-        data: playfairItal,
-        weight: 400,
-        style: "italic",
-      },
-      {
-        name: "Caveat",
-        data: caveatReg,
-        weight: 400,
-        style: "normal",
-      },
-      {
-        name: "JetBrains Mono",
-        data: jbMonoReg,
-        weight: 400,
-        style: "normal",
-      },
-      {
-        name: "JetBrains Mono",
-        data: jbMonoBld,
-        weight: 700,
-        style: "normal",
-      },
-      {
-        name: "Lora",
-        data: loraReg,
-        weight: 400,
-        style: "normal",
-      },
-      {
-        name: "Lora",
-        data: loraBld,
-        weight: 700,
-        style: "normal",
-      },
-      {
-        name: "Plus Jakarta Sans",
-        data: jakartaReg,
-        weight: 400,
-        style: "normal",
-      },
-      {
-        name: "Plus Jakarta Sans",
-        data: jakartaBld,
-        weight: 700,
-        style: "normal",
-      },
-      {
-        name: "Cinzel",
-        data: cinzelReg,
-        weight: 400,
-        style: "normal",
-      },
-      {
-        name: "Cinzel",
-        data: cinzelBld,
-        weight: 700,
-        style: "normal",
-      },
-      {
-        name: "Pacifico",
-        data: pacificoReg,
-        weight: 400,
-        style: "normal",
-      },
-    ];
+    const fonts: SatoriFont[] = [];
+
+    function addFont(name: string, data: ArrayBuffer | null, weight: 400 | 700, style: "normal" | "italic") {
+      if (data) fonts.push({ name, data, weight, style });
+    }
+
+    addFont("Outfit", outfitReg, 400, "normal");
+    addFont("Outfit", outfitBld, 700, "normal");
+    addFont("Playfair Display", playfairReg, 400, "normal");
+    addFont("Playfair Display", playfairBld, 700, "normal");
+    addFont("Playfair Display", playfairItal, 400, "italic");
+    addFont("Caveat", caveatReg, 400, "normal");
+    addFont("JetBrains Mono", jbMonoReg, 400, "normal");
+    addFont("JetBrains Mono", jbMonoBld, 700, "normal");
+    addFont("Lora", loraReg, 400, "normal");
+    addFont("Lora", loraBld, 700, "normal");
+    addFont("Plus Jakarta Sans", jakartaReg, 400, "normal");
+    addFont("Plus Jakarta Sans", jakartaBld, 700, "normal");
+    addFont("Cinzel", cinzelReg, 400, "normal");
+    addFont("Cinzel", cinzelBld, 700, "normal");
+    addFont("Pacifico", pacificoReg, 400, "normal");
+
+    if (fonts.length === 0) {
+      throw new Error("No fonts could be loaded — rendering will fail");
+    }
+
+    console.log(`[FontLoader] Loaded ${fonts.length} font variants`);
+    return fonts;
   } catch (err: any) {
-    console.error("[FontLoader] Failed to load all fonts:", err);
+    console.error("[FontLoader] Failed to load fonts:", err);
     throw err;
   }
 }

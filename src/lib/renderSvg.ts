@@ -27,25 +27,6 @@ function sanitizeInvalidCssStyles(svg: string): string {
   return result;
 }
 
-let renderLock: Promise<void> | null = null;
-let renderLockResolve: (() => void) | null = null;
-
-async function acquireRenderLock(): Promise<void> {
-  while (renderLock !== null) {
-    await renderLock;
-  }
-  renderLock = new Promise<void>((resolve) => {
-    renderLockResolve = resolve;
-  });
-}
-
-function releaseRenderLock(): void {
-  const resolve = renderLockResolve;
-  renderLock = null;
-  renderLockResolve = null;
-  resolve?.();
-}
-
 function renderPng(svg: string, scale: number): string {
   const width = Math.round(1080 * scale);
   const resvg = new Resvg(svg, {
@@ -56,22 +37,35 @@ function renderPng(svg: string, scale: number): string {
   return pngData.asPng().toString("base64");
 }
 
-export async function renderWithResvg(svg: string, scale: number = 1): Promise<string> {
-  await acquireRenderLock();
+function doRender(svg: string, scale: number): string {
   try {
     const cleaned = sanitizeSvgForResvg(svg);
-    const base64 = renderPng(cleaned, scale);
-    return `data:image/png;base64,${base64}`;
+    return renderPng(cleaned, scale);
   } catch (err) {
     try {
       let fallback = stripAllClipPaths(svg);
       fallback = sanitizeInvalidCssStyles(fallback);
-      const base64 = renderPng(fallback, scale);
-      return `data:image/png;base64,${base64}`;
-    } catch (fallbackErr) {
+      return renderPng(fallback, scale);
+    } catch {
       throw err instanceof Error ? err : new Error("Rendering failed due to an resvg panic");
     }
-  } finally {
-    releaseRenderLock();
   }
+}
+
+// Chain renders through a promise so only one resvg call runs at a time.
+// The native resvg binding (rayon) panics when multiple renders run concurrently.
+// Chaining via a single promise avoids the race condition of the old
+// acquire/release lock pattern.
+let renderChain: Promise<string> = Promise.resolve("");
+
+export function renderWithResvg(svg: string, scale: number = 1): Promise<string> {
+  const next = renderChain.then(
+    () => `data:image/png;base64,${doRender(svg, scale)}`,
+    () => `data:image/png;base64,${doRender(svg, scale)}`,
+  );
+  renderChain = next.catch((err) => {
+    console.error("[renderSvg] Render failed, resetting chain:", err instanceof Error ? err.message : err);
+    return "";
+  });
+  return next;
 }

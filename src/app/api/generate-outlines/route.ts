@@ -1,47 +1,14 @@
-import { NextResponse } from "next/server";
+import { withValidation } from "@/lib/api-route";
 import { GenerateOutlinesSchema } from "@/lib/validators";
 import { generateOutlines } from "@/services/groq";
+import { cachedLLMCall } from "@/lib/cached-llm";
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const validation = GenerateOutlinesSchema.safeParse(body);
+export const POST = withValidation(GenerateOutlinesSchema, async (data) => {
+  const { url, text, tone, focus, slideCount, targetPlatform, audience, goal, ctaStyle } = data;
 
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid request payload",
-          details: validation.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
-    }
-
-    const { text, tone, focus, slideCount, targetPlatform, audience, goal, ctaStyle } = validation.data;
-    const result = await generateOutlines(
-      text,
-      tone,
-      focus,
-      slideCount,
-      targetPlatform,
-      audience,
-      goal,
-      ctaStyle
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
-  } catch (error: any) {
-    console.error("[API Generate Outlines] Execution failed:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to generate outlines using Groq.",
-      },
-      { status: 500 }
-    );
-  }
-}
+  return cachedLLMCall(
+    url,
+    { text, tone, focus, slideCount, targetPlatform, audience, goal, ctaStyle },
+    () => generateOutlines(text, tone, focus, slideCount, targetPlatform, audience, goal, ctaStyle)
+  );
+});

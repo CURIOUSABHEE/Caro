@@ -32,6 +32,11 @@ const LABEL_TEXT: Record<string, string> = {
   light: "#656d76",
 };
 
+const TEXT_COLOR: Record<string, string> = {
+  dark: "#c9d1d9",
+  light: "#24292f",
+};
+
 const LINE_NUM_COLOR: Record<string, string> = {
   dark: "#484f58",
   light: "#8c959f",
@@ -43,7 +48,27 @@ const HIGHLIGHT_BG: Record<string, string> = {
 };
 
 export function CodeBlock({ language, code, highlightLines = [], tokens, theme, variant = "default" }: CodeBlockProps) {
-  if (!tokens || tokens.length === 0) return null;
+  if (!tokens || tokens.length === 0) {
+    if (!code) return null;
+    return (
+      <pre style={{
+        display: "block",
+        padding: "24px",
+        borderRadius: "12px",
+        border: `1.5px solid ${BORDER_COLOR[theme]}`,
+        backgroundColor: CARD_BG[theme],
+        color: TEXT_COLOR[theme],
+        fontFamily: "JetBrains Mono",
+        fontSize: "14px",
+        lineHeight: "1.6",
+        overflow: "hidden",
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+      }}>
+        {code}
+      </pre>
+    );
+  }
 
   const maxLineDigits = String(tokens.length).length;
   const lineNumWidth = Math.max(maxLineDigits * 12 + 24, 48);
@@ -65,6 +90,7 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme, 
         fontSize: "14px",
         lineHeight: "1.6",
         overflow: "hidden",
+        boxSizing: "border-box",
       }}
     >
       {variant === "macos" ? (
@@ -107,6 +133,8 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme, 
           display: "flex",
           flexDirection: "column",
           padding: "12px 0",
+          width: "100%",
+          boxSizing: "border-box",
         }}
       >
         {tokens.map((line) => {
@@ -116,6 +144,8 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme, 
               key={line.lineNumber}
               style={{
                 display: "flex",
+                width: "100%",
+                minWidth: 0,
                 backgroundColor: isHighlighted ? HIGHLIGHT_BG[theme] : "transparent",
               }}
             >
@@ -125,8 +155,10 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme, 
                     display: "flex",
                     width: `${lineNumWidth}px`,
                     minWidth: `${lineNumWidth}px`,
+                    flexShrink: 0,
                     paddingRight: "16px",
                     textAlign: "right",
+                    justifyContent: "flex-end",
                     color: LINE_NUM_COLOR[theme],
                     fontSize: "13px",
                     userSelect: "none",
@@ -139,14 +171,18 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme, 
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
+                  minWidth: 0,
+                  flex: 1,
                   fontFamily: "JetBrains Mono",
                   paddingLeft: isBash ? "8px" : "0px",
-                  alignItems: "center",
+                  paddingRight: "16px",
+                  boxSizing: "border-box",
                 }}
               >
                 {/* Bash prompt prefix — visual only, does not mutate stored code */}
                 {isBash && (
-                  <span style={{ color: theme === "dark" ? "#4d9375" : "#0a7c3e", fontFamily: "JetBrains Mono", whiteSpace: "pre", userSelect: "none", marginRight: "6px", fontWeight: 700 }}>$ </span>
+                  <span style={{ color: theme === "dark" ? "#4d9375" : "#0a7c3e", fontFamily: "JetBrains Mono", whiteSpace: "pre", userSelect: "none", marginRight: "6px", fontWeight: 700, flexShrink: 0 }}>$ </span>
                 )}
                 {line.tokens.length > 0
                   ? line.tokens.map((token, ti) => (
@@ -155,7 +191,9 @@ export function CodeBlock({ language, code, highlightLines = [], tokens, theme, 
                         style={{
                           color: token.color || (theme === "dark" ? "#e6edf3" : "#24292e"),
                           fontFamily: "JetBrains Mono",
-                          whiteSpace: "pre",
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word",
                         }}
                       >
                         {token.content}

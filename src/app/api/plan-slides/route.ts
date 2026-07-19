@@ -1,61 +1,16 @@
-import { NextResponse } from "next/server";
+import { withValidation } from "@/lib/api-route";
 import { PlanSlidesSchema } from "@/lib/validators";
 import { planSlides } from "@/services/groq";
+import { cachedLLMCall } from "@/lib/cached-llm";
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const validation = PlanSlidesSchema.safeParse(body);
+export const POST = withValidation(PlanSlidesSchema, async (data) => {
+  const { url, text, tone, focus, slideCount, targetPlatform, audience, goal, ctaStyle, selectedOutline } = data;
 
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid request payload",
-          details: validation.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
-    }
+  const result = await cachedLLMCall(
+    url,
+    { text, tone, focus, slideCount, targetPlatform, audience, goal, ctaStyle, selectedOutline },
+    () => planSlides(text, tone, focus, slideCount, targetPlatform, audience, goal, ctaStyle, selectedOutline)
+  );
 
-    const {
-      text,
-      tone,
-      focus,
-      slideCount,
-      targetPlatform,
-      audience,
-      goal,
-      ctaStyle,
-      selectedOutline,
-    } = validation.data;
-
-    const slides = await planSlides(
-      text,
-      tone,
-      focus,
-      slideCount,
-      targetPlatform,
-      audience,
-      goal,
-      ctaStyle,
-      selectedOutline
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        slides,
-      },
-    });
-  } catch (error: any) {
-    console.error("[API Plan Slides] Execution failed:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to generate slide plan using Groq.",
-      },
-      { status: 500 }
-    );
-  }
-}
+  return { slides: result };
+});

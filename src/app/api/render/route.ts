@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import satori from "satori";
-import type { ReactNode } from "react";
 import { loadAllFonts, type SatoriFont } from "@/lib/fonts";
-import { renderThemeSlide, type RenderSlideInput } from "@/lib/themes";
+import { renderThemeSlide, type RenderSlideInput } from "@/components/carousel/render-slide";
 import { RenderProjectSchema } from "@/lib/validators";
 import { tokenizeCode } from "@/lib/tokenize-code";
 import { renderWithResvg } from "@/lib/renderSvg";
+import { prefetchImage } from "@/lib/prefetch-image";
+import type { Slide, VisualType } from "@/lib/types";
+import { createHash } from "crypto";
+import { codeThemeType } from "@/lib/constants";
 
 // Module-level font cache — loaded once, reused across all requests
 let fontCache: SatoriFont[] | null = null;
@@ -17,46 +20,40 @@ async function getFonts(): Promise<SatoriFont[]> {
     fontLoadPromise = loadAllFonts().then((fonts) => {
       fontCache = fonts;
       return fonts;
+    }).catch((err) => {
+      fontLoadPromise = null;
+      throw err;
     });
   }
   return fontLoadPromise;
 }
 
-// Recursive helper to clean zIndex styles from Satori rendering tree to prevent console warnings
-function removeZIndexFromTree(node: ReactNode): ReactNode {
-  if (!node || typeof node !== "object") return node;
+// --- Render cache: skip re-rendering slides whose inputs haven't changed ---
+const RENDER_CACHE_MAX = 200;
+const renderCache = new Map<string, string>();
 
-  if (Array.isArray(node)) {
-    return node.map(removeZIndexFromTree) as ReactNode;
-  }
-
-  const obj = node as unknown as { props?: Record<string, unknown> } & Record<string, unknown>;
-  if (obj.props) {
-    const nextProps = { ...obj.props };
-    
-    if (nextProps.style && typeof nextProps.style === "object") {
-      const nextStyle = { ...nextProps.style as Record<string, unknown> };
-      delete nextStyle.zIndex;
-      delete nextStyle["z-index"];
-      nextProps.style = nextStyle;
-    }
-    
-    if (nextProps.children) {
-      nextProps.children = removeZIndexFromTree(nextProps.children as ReactNode);
-    }
-    
-    return {
-      ...obj,
-      props: nextProps
-    } as ReactNode;
-  }
-
-  return node;
+function makeCacheKey(args: {
+  themeName: string;
+  title: string;
+  body: string;
+  visualType: string;
+  visualData: unknown;
+  order: number;
+  totalSlides: number;
+  username: string;
+  accentColor?: string;
+  scale: number;
+  fontPairing?: string;
+  layoutDensity?: string;
+  scribble: boolean;
+  imageUrl?: string | null;
+  imageLayout?: string;
+  logoUrl?: string;
+}): string {
+  return createHash("sha1")
+    .update(JSON.stringify(args))
+    .digest("hex");
 }
-
-
-
-import type { Slide, VisualData, VisualType } from "@/lib/types";
 
 function buildSlideArgs(
   slide: Slide,
@@ -109,11 +106,10 @@ function buildSlideArgs(
 async function tokenizeSlideCode(slide: Slide, themeName: string): Promise<Slide["visualData"]> {
   if (slide.visualType === "code-block" && slide.visualData?.code) {
     try {
-      const themeType = ["monochrome", "cyber-horizon", "neo-brutalism", "frosted-grid", "glassmorphism", "sketch"].includes(themeName) ? "dark" : "light";
       const tokens = await tokenizeCode(
         slide.visualData.code,
         slide.visualData.language || "plaintext",
-        themeType
+        codeThemeType(themeName)
       );
       return { ...slide.visualData, tokens };
     } catch (e) {
@@ -123,9 +119,34 @@ async function tokenizeSlideCode(slide: Slide, themeName: string): Promise<Slide
   return slide.visualData;
 }
 
-async function renderSingleSlide(
+interface PreparedSlide {
+  index: number;
+  fullSlide: Slide;
+  prefetchedImageUrl: string | null;
+  prefetchedLogoUrl: string | null;
+  tokenizedVisualData: Slide["visualData"];
+}
+
+async function prepareSlide(
   slide: Slide,
   i: number,
+  themeName: string,
+  logoUrl: string | undefined,
+  noImages: boolean,
+): Promise<PreparedSlide> {
+  const fullSlide = { ...slide, order: slide.order ?? i } as unknown as Slide;
+
+  const [prefetchedImageUrl, prefetchedLogoUrl, tokenizedVisualData] = await Promise.all([
+    prefetchImage(noImages ? null : slide.imageUrl),
+    prefetchImage(logoUrl),
+    tokenizeSlideCode(slide, themeName),
+  ]);
+
+  return { index: i, fullSlide, prefetchedImageUrl, prefetchedLogoUrl, tokenizedVisualData };
+}
+
+async function renderSingleSlide(
+  prepared: PreparedSlide,
   totalSlides: number,
   themeName: string,
   username: string,
@@ -135,34 +156,82 @@ async function renderSingleSlide(
   backgroundOnly: boolean = false,
   fontPairing?: string,
   layoutDensity?: "compact" | "comfortable" | "minimal",
-  logoUrl?: string,
   noImages?: boolean,
   accentColor?: string,
   scale: number = 1,
 ): Promise<string> {
-  // Retry once, then fallback to text-only on persistent failure
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const { fullSlide, prefetchedImageUrl, prefetchedLogoUrl, tokenizedVisualData, index: i } = prepared;
+
+  // Check render cache
+  const cacheKey = makeCacheKey({
+    themeName,
+    title: fullSlide.title ?? "",
+    body: fullSlide.body ?? "",
+    visualType: fullSlide.visualType ?? "text-only",
+    visualData: fullSlide.visualData,
+    order: i,
+    totalSlides,
+    username,
+    accentColor,
+    scale,
+    fontPairing,
+    layoutDensity,
+    scribble,
+    imageUrl: prefetchedImageUrl,
+    imageLayout: fullSlide.imageLayout,
+    logoUrl: prefetchedLogoUrl ?? undefined,
+  });
+  const cached = renderCache.get(cacheKey);
+  if (cached) return cached;
+
+  const slideArgs = buildSlideArgs(fullSlide, i, totalSlides, themeName, username, websiteUrl, scribble, backgroundOnly, fontPairing, layoutDensity, undefined, noImages, accentColor);
+
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const visualData = (attempt === 1 ? {} : await tokenizeSlideCode(slide, themeName));
-      const renderArgs: RenderSlideInput = {
-        ...buildSlideArgs(slide, i, totalSlides, themeName, username, websiteUrl, scribble, backgroundOnly, fontPairing, layoutDensity, logoUrl, noImages, accentColor),
-        visualType: (attempt === 1 ? "text-only" : slide.visualType) as VisualType,
-        visualData: visualData as Record<string, unknown>,
-      };
-      const jsx = removeZIndexFromTree(renderThemeSlide(renderArgs));
-      const svg = await satori(jsx, { width: 1080, height: 1350, fonts });
-      return renderWithResvg(svg, scale);
-    } catch (err: unknown) {
-      console.error(`[API Render] Slide ${i} (theme: ${themeName}, visualType: ${slide.visualType}) attempt ${attempt + 1} failed:`, err instanceof Error ? err.message : err);
+      let visualType: string = fullSlide.visualType || "text-only";
+      let visualData: Record<string, unknown> | undefined = fullSlide.visualData as Record<string, unknown> | undefined;
+
       if (attempt === 0) {
-        await new Promise(r => setTimeout(r, 200));
+        visualData = tokenizedVisualData as Record<string, unknown> | undefined;
+      } else if (attempt === 1 && fullSlide.visualType === "code-block") {
+        visualType = "code-block";
+        visualData = fullSlide.visualData as Record<string, unknown> | undefined;
       } else {
-        console.error(`[API Render] Slide ${i} — both attempts failed, returning placeholder`);
+        visualType = "text-only";
+        visualData = undefined;
+      }
+
+      const renderArgs: RenderSlideInput = {
+        ...slideArgs,
+        imageUrl: prefetchedImageUrl,
+        logoUrl: prefetchedLogoUrl ?? undefined,
+        visualType: visualType as VisualType,
+        visualData: visualData,
+      };
+      const jsx = renderThemeSlide(renderArgs);
+      const svg = await satori(jsx, { width: 1080, height: 1350, fonts });
+      const result = await renderWithResvg(svg, scale);
+
+      // Store in render cache (evict oldest if at capacity)
+      if (renderCache.size >= RENDER_CACHE_MAX) {
+        const firstKey = renderCache.keys().next().value;
+        if (firstKey) renderCache.delete(firstKey);
+      }
+      renderCache.set(cacheKey, result);
+
+      return result;
+    } catch (err: unknown) {
+      console.error(`[API Render] Slide ${i} (theme: ${themeName}, visualType: ${fullSlide.visualType}) attempt ${attempt + 1} failed:`, err instanceof Error ? err.message : err);
+      if (attempt < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, 150));
+      } else {
+        console.error(`[API Render] Slide ${i} — all ${maxAttempts} attempts failed, returning placeholder`);
         throw err;
       }
     }
   }
-  throw new Error("Render failed after retry and fallback");
+  throw new Error("Render failed after all fallback attempts");
 }
 
 export async function POST(req: Request) {
@@ -205,24 +274,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // Fonts loaded once (cached at module scope across requests)
     const fonts = await getFonts();
     const total = slides.length;
 
-    // Render slides sequentially — resvg native code can abort the process when
-    // multiple renders run concurrently (rayon worker panic). Individual failures
-    // still don't kill the batch.
-    const results: PromiseSettledResult<string>[] = [];
-    for (let i = 0; i < slides.length; i++) {
-      const slide = slides[i];
-      const fullSlide = {
-        ...slide,
-        order: slide.order ?? i,
-      } as unknown as Slide;
-      try {
-        const value = await renderSingleSlide(
-          fullSlide,
-          i,
+    // Phase 1: Parallel image prefetch + code tokenization for all slides
+    const prepared = await Promise.all(
+      slides.map((slide, i) => prepareSlide(slide as unknown as Slide, i, themeName, logoUrl, noImages ?? false))
+    );
+
+    // Phase 2: Render slides
+    const results: PromiseSettledResult<string>[] = await Promise.allSettled(
+      prepared.map((p) =>
+        renderSingleSlide(
+          p,
           total,
           themeName,
           username,
@@ -232,16 +296,12 @@ export async function POST(req: Request) {
           backgroundOnly,
           fontPairing,
           layoutDensity,
-          logoUrl,
           noImages,
           accentColor,
-          scale
-        );
-        results.push({ status: "fulfilled", value });
-      } catch (reason) {
-        results.push({ status: "rejected", reason });
-      }
-    }
+          scale,
+        )
+      )
+    );
 
     const renderedImages: string[] = [];
     const errors: { index: number; error: string }[] = [];

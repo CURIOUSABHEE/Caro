@@ -12,6 +12,33 @@ function getGroqClient(): Groq {
   return new Groq({ apiKey });
 }
 
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+
+type GroqCreateParams = Omit<Parameters<Groq["chat"]["completions"]["create"]>[0], "model"> & { model?: string };
+
+async function groqCompletionWithRetry(
+  params: GroqCreateParams,
+  maxAttempts = 3,
+): Promise<{ choices: { message: { content: string | null } }[] }> {
+  const groq = getGroqClient();
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const result = await groq.chat.completions.create({ ...params, model: GROQ_MODEL } as Parameters<Groq["chat"]["completions"]["create"]>[0]);
+      if ("choices" in result) return result as { choices: { message: { content: string | null } }[] };
+      throw new Error("Unexpected streaming response");
+    } catch (err: unknown) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[GroqService] Attempt ${attempt + 1}/${maxAttempts} failed: ${msg}`);
+      if (attempt < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
+
 // --- JSON recovery helpers for LLM output ---
 
 // Strip unescaped control chars (newlines, tabs) inside JSON string values
@@ -78,8 +105,8 @@ function tryParseJson(raw: string): unknown {
     if (lastBrace === -1) break;
     const testCandidate = str.substring(0, lastBrace + 1) + "]}";
     try { 
-      const parsed = JSON.parse(testCandidate); 
-      if (parsed && Array.isArray(parsed.slides)) return parsed;
+      const parsed = JSON.parse(testCandidate);
+      if (parsed && (Array.isArray(parsed.slides) || Array.isArray(parsed.outlines))) return parsed;
     } catch {}
     str = str.substring(0, lastBrace);
   }
@@ -102,6 +129,19 @@ function compressText(text: string, maxTokens: number): string {
   return text.slice(0, maxChars) + "\n\n[...content truncated...]";
 }
 
+function logGroqBudget(
+  label: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number
+) {
+  const systemTokens = estimateTokens(systemPrompt);
+  const userTokens = estimateTokens(userPrompt);
+  console.info(
+    `[GroqBudget] ${label}: system~${systemTokens}, user~${userTokens}, max_output=${maxTokens}, requested~${systemTokens + userTokens + maxTokens}`
+  );
+}
+
 export async function planSlides(
   articleText: string,
   tone: string = "professional",
@@ -117,8 +157,6 @@ export async function planSlides(
     slides: { title: string; type: "COVER" | "CONTENT" | "CLOSING"; visualType: VisualType }[];
   }
 ): Promise<SlideBlock[]> {
-  const groq = getGroqClient();
-
   const countInstruction = selectedOutline
     ? `Flesh out the slides in the selected outline:
 Title: ${selectedOutline.title}
@@ -142,7 +180,7 @@ RULES:
 - CONTENT: choose the best visualType for the idea:
 
   "text-only" — purely narrative. Body: exactly 3-4 bullet points (•) ordered by importance.
-  "code-block" — code/config display. visualData: {code, language}.
+  "code-block" — code display WITH optional explanation. visualData: {code, language}. Body: 1-2 bullet points explaining the code, when to use it, or key takeaways. The body text renders below the code block.
   "step-chain" — sequences/workflows. visualData: {"steps": [{"number":1,"label":"","description":""}]} (3-4 steps).
   "venn" — comparisons/overlap. visualData: {"leftLabel":"","rightLabel":"","overlapLabel":"","leftPoints":[""],"rightPoints":[""]}.
   "wheel" — categories around a core. visualData: {"centerLabel":"","spokes":[{"label":"","description":""}]} (3-4 spokes).
@@ -195,10 +233,10 @@ OUTPUT JSON:
 {"slides":[{"type":"COVER"|"CONTENT"|"CLOSING","title":"headline (*word*)","body":"• bullet points","order":0,"visualType":"text-only"|"step-chain"|"venn"|"wheel"|"concentric"|"icon-grid"|"code-block"|"quote"|"stat"|"table"|"flowchart"|"timeline"|"before-after"|"image-grid"|"architecture"|"sequence"|"mini-chart","visualData":{}}]}
 
 Tone: "${tone}".
-${focus ? `Focus: ${focus}.` : ""}
+${focus ? `\n⚠️ USER INSTRUCTION (highest priority — you MUST follow this):\n${focus}\n` : ""}
 Use only standard ASCII characters in JSON values.`;
 
-  // --- Preprocessing: detect code markers in article to reinforce code-block hints ---
+  // --- Preprocessing: detect code markers and extract code snippets from article ---
   const codePatterns = [
     /```[\s\S]*?```/g,               // triple backtick fenced blocks
     /(?:\r?\n)(?: {4}|\t)/,          // indented code lines
@@ -207,9 +245,23 @@ Use only standard ASCII characters in JSON values.`;
     /(?:function\s+\w+|const\s+\w+\s*=|let\s+\w+\s*=|def\s+\w+|import\s+|export\s+|class\s+\w+|FROM\s+\w+|RUN\s+|CMD\s+|SELECT\s+|INSERT\s+|UPDATE\s+|CREATE\s+TABLE)/g,  // code keywords
   ];
   const hasCode = codePatterns.some(p => p.test(articleText));
-  const codeHint = hasCode
-    ? "\n\n⚠️ IMPORTANT: The article above contains code snippets. You MUST use visualType \"code-block\" for the slides that display these code snippets. Put code in visualData.code, NEVER in the body."
-    : "";
+
+  // Extract actual fenced code blocks so the LLM can use them directly
+  const fencedCodeBlocks = [...articleText.matchAll(/```(\w*)\n([\s\S]*?)```/g)]
+    .map((m) => ({ lang: m[1] || "plaintext", code: m[2].trim() }))
+    .filter((b) => b.code.length > 5);
+
+  let codeHint = "";
+  if (hasCode) {
+    if (fencedCodeBlocks.length > 0) {
+      const codeListing = fencedCodeBlocks
+        .map((b, i) => `  Snippet ${i + 1} (${b.lang}):\n${b.code}`)
+        .join("\n\n");
+      codeHint = `\n\n⚠️ CRITICAL RULE — CODE SLIDES:\nThe article contains ${fencedCodeBlocks.length} code snippet(s). You MUST create a SEPARATE "code-block" slide for EACH code snippet above. Rules:\n1. Each code-block slide: title = short name of the snippet, body = 1-2 bullet explaining what it does or when to use it.\n2. Put the EXACT code (from the snippets listed below) into visualData.code. Put the language into visualData.language.\n3. Do NOT merge multiple snippets into one slide. Do NOT put code in the body text.\n4. Code-block slides should be interleaved with text-only explanation slides for pacing.\n\nHere are the code snippets to use (copy them exactly into visualData.code):\n${codeListing}`;
+    } else {
+      codeHint = `\n\n⚠️ IMPORTANT: The article contains code examples. For every distinct code example, create a separate "code-block" slide. Put code in visualData.code and language in visualData.language. NEVER put code in the body text. Create one code-block slide per code example — do not merge them.`;
+    }
+  }
   // --- End preprocessing ---
 
   // Compress article text to fit within model token limit (~8000 TPM)
@@ -220,12 +272,11 @@ Use only standard ASCII characters in JSON values.`;
   const compressedArticle = compressText(articleText, Math.max(maxArticleTokens, 500));
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await groqCompletionWithRetry({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Here is the blog article content:\n\n${compressedArticle}${codeHint}` },
       ],
-      model: "openai/gpt-oss-120b",
       temperature: 0.3,
       max_tokens: 4096,
     });
@@ -283,8 +334,6 @@ export async function generateOutlines(
     slides: { title: string; type: "COVER" | "CONTENT" | "CLOSING"; visualType: VisualType }[];
   }[];
 }> {
-  const groq = getGroqClient();
-
   const countInstruction =
     slideCount === "auto"
       ? "Create outlines containing a suitable number of slides (between 5 and 12 slides) depending on the article's depth."
@@ -355,12 +404,11 @@ Use only standard ASCII characters in JSON values. Do not write any other explan
   const compressedArticle = compressText(articleText, Math.max(maxArticleTokens, 500));
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await groqCompletionWithRetry({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Here is the blog article content:\n\n${compressedArticle}` },
       ],
-      model: "openai/gpt-oss-120b",
       temperature: 0.5,
       max_tokens: 4096,
     });
@@ -393,8 +441,6 @@ export async function generateAlternatives(
 ): Promise<{
   alternatives: { title: string; body: string }[];
 }> {
-  const groq = getGroqClient();
-
   const typeDesc = slideType === "COVER"
     ? "Generate 3 alternative HOOK titles and subtitles for the COVER slide. Cover titles must be extremely catchy, scroll-stopping, and short (5-8 words). The body/subtitle should be a one-sentence payoff."
     : "Generate 3 alternative CALL-TO-ACTION (CTA) titles and button texts for the CLOSING slide. Closing titles should drive outcomes. The body should be the CTA button text.";
@@ -421,12 +467,11 @@ OUTPUT JSON FORMAT:
 Do not write any explanation. Return only valid JSON.`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await groqCompletionWithRetry({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Context from article:\n${originalText?.substring(0, 2000) || ""}` },
       ],
-      model: "openai/gpt-oss-120b",
       temperature: 0.7,
       max_tokens: 1024,
     });
@@ -447,12 +492,10 @@ Do not write any explanation. Return only valid JSON.`;
 }
 
 export async function regenerateBlock(
-  block: { type: "COVER" | "CONTENT" | "CLOSING"; title: string; body: string; order: number },
+  block: { type: "COVER" | "CONTENT" | "CLOSING"; title: string; body: string; order: number; visualType?: string; visualData?: Record<string, unknown> },
   instruction: string,
   originalText?: string
 ): Promise<Omit<SlideBlock, "order">> {
-  const groq = getGroqClient();
-
   const systemPrompt = `You are a social media copywriter and editor. A user wants to edit a single slide block in a social media carousel.
 Modify the slide's title and body according to their instruction, making it descriptive and high-value.
 
@@ -477,12 +520,11 @@ CRITICAL RULES:
 }`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await groqCompletionWithRetry({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: "Please regenerate this block based on the instructions." },
       ],
-      model: "openai/gpt-oss-120b",
       temperature: 0.3,
       max_tokens: 2048,
     });
@@ -500,9 +542,9 @@ CRITICAL RULES:
       type: parsed.type === "COVER" || parsed.type === "CLOSING" ? parsed.type : "CONTENT",
       title: typeof parsed.title === "string" ? parsed.title : block.title,
       body: typeof parsed.body === "string" ? parsed.body : block.body,
-      visualType: (block as any).visualType,
-      visualData: (block as any).visualData
-    } as any;
+      visualType: block.visualType,
+      visualData: block.visualData,
+    } as Omit<SlideBlock, "order">;
   } catch (error: unknown) {
     console.error("[GroqService] Failed to regenerate block:", error);
     throw new Error(error instanceof Error ? error.message : "Failed to regenerate block using Groq.");
@@ -517,8 +559,6 @@ export async function fillVisualData(
   if (visualType === "text-only" || visualType === "code-block") {
     return {};
   }
-
-  const groq = getGroqClient();
 
   let schemaDescription = "";
   if (visualType === "step-chain") {
@@ -564,12 +604,11 @@ CRITICAL RULES:
 3. You MUST return your response as a valid JSON object matching the requested structure. Do not wrap it in markdown code blocks or write explanatory text. Just output pure JSON.`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await groqCompletionWithRetry({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Slide Title: ${title}\nSlide Body Content: ${body}` },
       ],
-      model: "openai/gpt-oss-120b",
       temperature: 0.3,
       max_tokens: 1024,
     });
@@ -590,6 +629,6 @@ CRITICAL RULES:
     }
   } catch (error: unknown) {
     console.error("[GroqService] Failed to fill visual data:", error);
-    return {};
+    throw error;
   }
 }

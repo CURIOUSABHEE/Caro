@@ -1,5 +1,5 @@
 import type { TokenizedLine } from "@/lib/tokenize-code";
-import type { PaletteOverride } from "@/lib/themes";
+import type { PaletteOverride } from "@/components/carousel/types";
 
 export const VISUAL_TYPES = [
   "step-chain",

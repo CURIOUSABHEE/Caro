@@ -22,7 +22,6 @@ import {
   Download,
   Image as ImageIcon,
   AlertCircle,
-  Link as LinkIcon,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -34,124 +33,18 @@ import {
   Layers
 } from "lucide-react";
 
-const THEME_DEFAULT_COLORS: Record<string, { background: string; text: string; primary: string; secondary: string; tertiary: string }> = {
-  "monochrome": { background: "#050505", text: "#ffffff", primary: "#ffffff", secondary: "#a3a3a3", tertiary: "#525252" },
-  "soft-gradient": { background: "#fbfbfc", text: "#0f172a", primary: "#7c3aed", secondary: "#ec4899", tertiary: "#3b82f6" },
-  "warm-editorial": { background: "#f5f2eb", text: "#1e1b18", primary: "#e05a47", secondary: "#6b6259", tertiary: "#a8a297" },
-  "mesh-glow": { background: "#fdf2f8", text: "#0a0a0a", primary: "#ec4899", secondary: "#f472b6", tertiary: "#3b82f6" },
-  "cyber-horizon": { background: "#050505", text: "#ffffff", primary: "#ea580c", secondary: "#3b82f6", tertiary: "#4b5563" },
-  "linen-rust": { background: "#d8d7cf", text: "#1c1917", primary: "#b84a30", secondary: "#5c5553", tertiary: "#8b857d" },
-  "neo-brutalism": { background: "#F7F3EC", text: "#141414", primary: "#161616", secondary: "#555555", tertiary: "#999999" },
-  "neomorphism": { background: "#E4E0DA", text: "#2C3E50", primary: "#6D8CAE", secondary: "#95A5A6", tertiary: "#BDC3C7" },
-  "frosted-grid": { background: "#050505", text: "#FFFFFF", primary: "#FDE68A", secondary: "#9CA3AF", tertiary: "#4B5563" },
-  "glassmorphism": { background: "#0B0F19", text: "#FFFFFF", primary: "#38bdf8", secondary: "#818cf8", tertiary: "#475569" },
-  "liquid-glass": { background: "#0f172a", text: "#F1F5F9", primary: "#0ea5e9", secondary: "#3b82f6", tertiary: "#64748b" },
-  "sketch": { background: "#ffffff", text: "#1c1c1c", primary: "#000000", secondary: "#444444", tertiary: "#888888" },
-  "wireframe-3d": { background: "#f4f4f4", text: "#000000", primary: "#000000", secondary: "#333333", tertiary: "#888888" },
-};
+import type { ThemeName, Shape, Slide } from "./page-data";
+import {
+  THEME_DEFAULT_COLORS,
+  PALETTE_PRESETS,
+  PALETTE_INFO,
+  TONES,
+  PRESET_COLORS,
+} from "./page-data";
+import { convertBase64PngToJpg, sanitizeFilename } from "@/lib/export-utils";
+import { CTA_STYLES } from "@/lib/constants";
 
-export interface Shape {
-  id: string;
-  type: "rect" | "circle" | "text";
-  x: number;      // 0 to 100 (%)
-  y: number;      // 0 to 100 (%)
-  width: number;  // px
-  height: number; // px
-  color: string;
-  text?: string;
-  fontSize?: number;
-}
-
-interface Slide {
-  id: string;
-  type: "COVER" | "CONTENT" | "CLOSING";
-  order: number;
-  approved: boolean;
-  
-  aiTitle: string;
-  aiBody: string;
-  userTitle: string;
-  userBody: string;
-  isEdited: boolean;
-
-  imageUrl?: string | null;
-  imageLayout?: "background" | "inline";
-  shapes?: Shape[];
-  visualType?: VisualType;
-  visualData?: VisualData | Record<string, unknown>;
-  elements?: CanvasElement[];
-  manuallyEdited?: boolean;
-  canvasPngUrl?: string;
-}
-
-const TONES = [
-  { value: "professional", label: "👔 Professional & Corporate" },
-  { value: "educational", label: "💡 Educational & Informative" },
-  { value: "punchy", label: "🔥 Punchy & Minimalist" },
-  { value: "contrarian", label: "⚡ Contrarian & Bold" },
-  { value: "story-driven", label: "📖 Story-Driven & Narrative" },
-];
-
-const PRESET_COLORS = [
-  { value: "#ffffff", label: "White" },
-  { value: "#000000", label: "Black" },
-  { value: "#2563eb", label: "Blue" },
-  { value: "#ef4444", label: "Red" },
-  { value: "#10b981", label: "Green" },
-  { value: "#f59e0b", label: "Yellow" },
-  { value: "#7c3aed", label: "Purple" },
-  { value: "#db2777", label: "Pink" }
-];
-
-type ThemeName = "monochrome" | "soft-gradient" | "warm-editorial" | "mesh-glow" | "cyber-horizon" | "linen-rust" | "neo-brutalism" | "neomorphism" | "frosted-grid" | "glassmorphism" | "liquid-glass" | "sketch" | "wireframe-3d";
-
-const PALETTE_INFO: { name: ThemeName; label: string; colors: string[] }[] = [
-  { name: "monochrome", label: "Monochrome", colors: ["#050505", "#ffffff", "#6e6e6e"] },
-  { name: "soft-gradient", label: "Soft Gradient", colors: ["#fbfbfc", "#c084fc", "#f472b6"] },
-  { name: "warm-editorial", label: "Warm Editorial", colors: ["#FDFBF7", "#E05A47", "#2C3E50"] },
-  { name: "mesh-glow", label: "Mesh Glow", colors: ["#ffffff", "#ec4899", "#f472b6"] },
-  { name: "cyber-horizon", label: "Cyber Horizon", colors: ["#0a0a0a", "#ea580c", "#3b82f6"] },
-  { name: "linen-rust", label: "Linen & Rust", colors: ["#d8d7cf", "#c5563c", "#2e2b2a"] },
-  { name: "neo-brutalism", label: "Neo Brutalism", colors: ["#E5E5E5", "#161616", "#FF4500"] },
-  { name: "neomorphism", label: "Neomorphism", colors: ["#E0E5EC", "#6D8CAE", "#ffffff"] },
-  { name: "frosted-grid", label: "Frosted Grid", colors: ["#a855f7", "#ffffff", "#000000"] },
-  { name: "glassmorphism", label: "Glassmorphism", colors: ["#0f172a", "#e2e8f0", "#ffffff"] },
-  { name: "liquid-glass", label: "Liquid Glass", colors: ["#0ea5e9", "#f97316", "#f8fafc"] },
-  { name: "sketch", label: "Sketch", colors: ["#2d2d2d", "#fdfaf6", "#4a4a4a"] },
-  { name: "wireframe-3d", label: "Wireframe 3D", colors: ["#ffffff", "#000000", "#e5e5e5"] },
-];
-
-const convertBase64PngToJpg = (pngBase64Uri: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Failed to get 2D canvas context"));
-        return;
-      }
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL("image/jpeg", 0.95));
-    };
-    img.onerror = (err) => reject(err);
-    img.src = pngBase64Uri;
-  });
-};
-
-const sanitizeFilename = (name: string): string => {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .substring(0, 50)
-    || "slide";
-};
+export type { Shape, Slide } from "./page-data";
 
 export default function Home() {
   // Wizard flow state & Gating
@@ -211,6 +104,9 @@ export default function Home() {
   const [customLogoUrl, setCustomLogoUrl] = useState<string>("");
   const [noImages, setNoImages] = useState<boolean>(false);
   const [customAccentColor, setCustomAccentColor] = useState<string>("");
+  const [customSecondaryColor, setCustomSecondaryColor] = useState<string>("");
+  const [customBgColor, setCustomBgColor] = useState<string>("");
+  const [customTextColor, setCustomTextColor] = useState<string>("");
 
   // Alternatives Modal / Swapper State
   const [alternativesSlideType, setAlternativesSlideType] = useState<"COVER" | "CLOSING" | null>(null);
@@ -236,16 +132,6 @@ export default function Home() {
   const [scribble, setScribble] = useState<boolean>(false);
 
   // Live Theme Preview State
-  const PALETTE_PRESETS = [
-    { name: "Sunset", background: "#F7F3EC", text: "#141414", primary: "#F4623A", secondary: "#FFD400", tertiary: "#2EC4B6" },
-    { name: "Berry", background: "#FAF3EF", text: "#161616", primary: "#D6336C", secondary: "#FFB700", tertiary: "#845EF7" },
-    { name: "Forest", background: "#F4F6EE", text: "#1B1B1B", primary: "#2F9E44", secondary: "#FFC078", tertiary: "#1098AD" },
-    { name: "Ocean", background: "#F0F4F8", text: "#0F172A", primary: "#2563EB", secondary: "#06B6D4", tertiary: "#7C3AED" },
-    { name: "Candy", background: "#FFF5F5", text: "#1A1A2E", primary: "#FF3EA5", secondary: "#FFD400", tertiary: "#00D4AA" },
-    { name: "Midnight", background: "#0F0F1A", text: "#E8E8E8", primary: "#FF6B35", secondary: "#FFD93D", tertiary: "#6BCB77" },
-    { name: "Rose", background: "#FDF2F2", text: "#1C1917", primary: "#E11D48", secondary: "#FDA4AF", tertiary: "#8B5CF6" },
-    { name: "Mint", background: "#F0FDF4", text: "#0F172A", primary: "#059669", secondary: "#34D399", tertiary: "#0284C7" },
-  ];
   const [themePreviewUri, setThemePreviewUri] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState<boolean>(false);
   const [previewSlideIdx, setPreviewSlideIdx] = useState<number>(0);
@@ -325,6 +211,9 @@ export default function Home() {
               logoUrl: customLogoUrl || undefined,
               noImages,
               accentColor: customAccentColor || undefined,
+              secondaryColor: customSecondaryColor || undefined,
+              bgColor: customBgColor || undefined,
+              textColor: customTextColor || undefined,
             });
             if (active) {
               if (data.success && data.data?.images && data.data.images.length > 0) {
@@ -361,6 +250,11 @@ export default function Home() {
         if (bk.fontPairing) setCustomFontPairing(bk.fontPairing);
         if (bk.logoUrl) setCustomLogoUrl(bk.logoUrl);
         if (bk.colors?.primary) setCustomAccentColor(bk.colors.primary);
+        if (bk.colors?.secondary) setCustomSecondaryColor(bk.colors.secondary);
+        if (bk.colors?.background) setCustomBgColor(bk.colors.background);
+        if (bk.colors?.text) setCustomTextColor(bk.colors.text);
+        if (bk.defaultTone) setPreferences((p) => ({ ...p, tone: bk.defaultTone }));
+        if (bk.defaultCTA && (CTA_STYLES as readonly string[]).includes(bk.defaultCTA)) setCtaStyle(bk.defaultCTA as "soft" | "direct" | "newsletter" | "product" | "no-cta");
       } catch (e) {
         console.warn("Failed to load brand kit from localStorage", e);
       }
@@ -395,6 +289,9 @@ export default function Home() {
         if (parsed.customLogoUrl) setCustomLogoUrl(parsed.customLogoUrl);
         if (typeof parsed.noImages === "boolean") setNoImages(parsed.noImages);
         if (parsed.customAccentColor) setCustomAccentColor(parsed.customAccentColor);
+        if (parsed.customSecondaryColor) setCustomSecondaryColor(parsed.customSecondaryColor);
+        if (parsed.customBgColor) setCustomBgColor(parsed.customBgColor);
+        if (parsed.customTextColor) setCustomTextColor(parsed.customTextColor);
       } catch (e) {
         console.warn("Failed to restore draft from localStorage", e);
       }
@@ -403,32 +300,40 @@ export default function Home() {
 
   // Save draft on key changes
   const saveDraftLocally = (updatedSlides = slides, maxStep = maxUnlockedStep) => {
-    localStorage.setItem(
-      "caro_draft_project",
-      JSON.stringify({
-        url,
-        preferences,
-        slides: updatedSlides,
-        themeName,
-        username,
-        websiteUrl,
-        scribble,
-        extractedData,
-        maxUnlockedStep: maxStep,
-        paletteOverride,
-        targetPlatform,
-        audience,
-        goal,
-        ctaStyle,
-        outlines,
-        selectedOutlineId,
-        customFontPairing,
-        customLayoutDensity,
-        customLogoUrl,
-        noImages,
-        customAccentColor
-      })
-    );
+    try {
+      localStorage.setItem(
+        "caro_draft_project",
+        JSON.stringify({
+          url,
+          preferences,
+          slides: updatedSlides,
+          themeName,
+          username,
+          websiteUrl,
+          scribble,
+          extractedData,
+          maxUnlockedStep: maxStep,
+          paletteOverride,
+          targetPlatform,
+          audience,
+          goal,
+          ctaStyle,
+          outlines,
+          selectedOutlineId,
+          customFontPairing,
+          customLayoutDensity,
+          customLogoUrl,
+          noImages,
+          customAccentColor,
+          customSecondaryColor,
+          customBgColor,
+          customTextColor
+        })
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("[Draft] Failed to save draft to localStorage:", msg);
+    }
   };
 
   // Invalidate rendered image cache when palette changes
@@ -516,6 +421,7 @@ export default function Home() {
 
     try {
       const { data: result } = await axios.post("/api/generate-outlines", {
+        url,
         text: extractedData.content,
         tone: preferences.tone,
         focus: preferences.focus,
@@ -547,6 +453,7 @@ export default function Home() {
 
     try {
       const { data: result } = await axios.post("/api/plan-slides", {
+        url,
         text: extractedData.content,
         tone: preferences.tone,
         focus: preferences.focus,
@@ -564,7 +471,7 @@ export default function Home() {
       const formatted: Slide[] = result.data.slides.map((s: { type: string; title: string; body: string; visualType?: VisualType; visualData?: VisualData }, idx: number) => {
         const vType = s.type === "COVER" || s.type === "CLOSING" ? "text-only" : (s.visualType || "text-only");
         return {
-          id: `slide_${Math.random().toString(36).substr(2, 9)}`,
+          id: `slide_${Math.random().toString(36).substring(2, 11)}`,
           type: s.type,
           order: idx,
           approved: true,
@@ -628,10 +535,7 @@ export default function Home() {
 
   const applyAlternative = (title: string, body: string) => {
     if (alternativesSlideIdx === null) return;
-    const updated = [...slides];
-    updated[alternativesSlideIdx].userTitle = title;
-    updated[alternativesSlideIdx].userBody = body;
-    updated[alternativesSlideIdx].isEdited = true;
+    const updated = slides.map((s, i) => i === alternativesSlideIdx ? { ...s, userTitle: title, userBody: body, isEdited: true } : s);
     setSlides(updated);
     saveDraftLocally(updated);
     
@@ -651,40 +555,33 @@ export default function Home() {
   };
 
   const handleVisualTypeChange = async (index: number, newVisualType: Slide["visualType"]) => {
-    const updated = [...slides];
-    updated[index].visualType = newVisualType;
-    
     if (newVisualType === "text-only" || !newVisualType) {
-      updated[index].visualData = undefined;
+      const updated = slides.map((s, i) => i === index ? { ...s, visualType: newVisualType, visualData: undefined } : s);
       setSlides(updated);
       saveDraftLocally(updated);
       return;
     }
 
-    // Set loading indicator
-    updated[index].visualData = { loading: true };
-    setSlides([...updated]);
+    const loadingUpdated = slides.map((s, i) => i === index ? { ...s, visualType: newVisualType, visualData: { loading: true } } : s);
+    setSlides(loadingUpdated);
 
     try {
       const { data: result } = await axios.post("/api/fill-visual-data", {
         visualType: newVisualType,
-        title: updated[index].userTitle,
-        body: updated[index].userBody,
+        title: slides[index].userTitle,
+        body: slides[index].userBody,
       });
-      if (result.success) {
-        updated[index].visualData = result.data.visualData;
-      } else {
-        updated[index].visualData = undefined;
-      }
+      const finalUpdated = slides.map((s, i) => i === index ? { ...s, visualData: result.success ? result.data.visualData : undefined } : s);
+      setSlides(finalUpdated);
+      saveDraftLocally(finalUpdated);
     } catch (err) {
       console.error("Failed to change visual type:", err);
-      updated[index].visualData = undefined;
+      const errorUpdated = slides.map((s, i) => i === index ? { ...s, visualData: undefined } : s);
+      setSlides(errorUpdated);
+      saveDraftLocally(errorUpdated);
       setError("Failed to generate visual data for this slide. Try again.");
     }
-    setSlides(updated);
-    saveDraftLocally(updated);
 
-    // Re-render if already on Stage 4
     if (step === 4) {
       setAllThemeImages({});
       await handleRender();
@@ -695,31 +592,26 @@ export default function Home() {
   // STAGE 2 Actions
   // ==========================================
   const toggleApprove = (index: number) => {
-    const updated = [...slides];
-    updated[index].approved = !updated[index].approved;
+    const updated = slides.map((s, i) => i === index ? { ...s, approved: !s.approved } : s);
     setSlides(updated);
     saveDraftLocally(updated);
   };
 
   const handleTextChange = (index: number, field: "userTitle" | "userBody", value: string) => {
-    const updated = [...slides];
-    updated[index][field] = value;
-    updated[index].isEdited = true;
+    const updated = slides.map((s, i) => i === index ? { ...s, [field]: value, isEdited: true } : s);
     setSlides(updated);
     saveDraftLocally(updated);
   };
 
   const resetToAI = (index: number) => {
-    const updated = [...slides];
-    updated[index].userTitle = updated[index].aiTitle;
-    updated[index].userBody = updated[index].aiBody;
-    updated[index].isEdited = false;
+    const updated = slides.map((s, i) => i === index ? { ...s, userTitle: s.aiTitle, userBody: s.aiBody, isEdited: false } : s);
     setSlides(updated);
     saveDraftLocally(updated);
   };
 
   const handleRegenerateBlock = async (index: number, instructionOverride?: string) => {
     const target = slides[index];
+    if (!target) return;
     const instruction = instructionOverride ?? (aiInstructions[target.id] || "");
     
     const targetId = target.id;
@@ -732,19 +624,23 @@ export default function Home() {
           type: target.type,
           title: target.userTitle,
           body: target.userBody,
-          order: target.order
+          order: target.order,
+          visualType: target.visualType,
+          visualData: target.visualData,
         },
         instruction,
         originalText: extractedData?.content
       });
       if (!result.success) throw new Error(result.error);
 
-      const updated = [...slides];
-      updated[index].aiTitle = result.data.block.title;
-      updated[index].aiBody = result.data.block.body;
-      updated[index].userTitle = result.data.block.title;
-      updated[index].userBody = result.data.block.body;
-      updated[index].isEdited = false;
+      const updated = slides.map((s, i) => i === index ? {
+        ...s,
+        aiTitle: result.data.block.title,
+        aiBody: result.data.block.body,
+        userTitle: result.data.block.title,
+        userBody: result.data.block.body,
+        isEdited: false,
+      } : s);
 
       // Clear instruction input
       setAiInstructions(prev => ({ ...prev, [targetId]: "" }));
@@ -781,6 +677,9 @@ export default function Home() {
               logoUrl: customLogoUrl || undefined,
               noImages,
               accentColor: customAccentColor || undefined,
+              secondaryColor: customSecondaryColor || undefined,
+              bgColor: customBgColor || undefined,
+              textColor: customTextColor || undefined,
               scale: 1,
             });
             if (renderResult.success && renderResult.data.images?.[0]) {
@@ -809,7 +708,7 @@ export default function Home() {
 
   const addBlankSlide = () => {
     const newSlide: Slide = {
-      id: `slide_${Math.random().toString(36).substr(2, 9)}`,
+      id: `slide_${Math.random().toString(36).substring(2, 11)}`,
       type: "CONTENT",
       order: slides.length,
       approved: true,
@@ -840,15 +739,15 @@ export default function Home() {
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
+    if (draggedIndex >= slides.length || index >= slides.length) return;
     
-    const updated = [...slides];
-    const temp = updated[draggedIndex];
-    updated.splice(draggedIndex, 1);
-    updated.splice(index, 0, temp);
+    const temp = slides[draggedIndex];
+    if (!temp) return;
+    const reordered = [...slides];
+    reordered.splice(draggedIndex, 1);
+    reordered.splice(index, 0, temp);
     
-    updated.forEach((s, i) => {
-      s.order = i;
-    });
+    const updated = reordered.map((s, i) => ({ ...s, order: i }));
     
     setSlides(updated);
     setDraggedIndex(index);
@@ -884,22 +783,6 @@ export default function Home() {
   // ==========================================
   // STAGE 4: Satori Rendering & ZIP
   // ==========================================
-  const buildRenderPayload = () => ({
-    slides: slides.filter(s => s.approved).map(s => ({
-      type: s.type,
-      title: s.userTitle,
-      body: s.userBody,
-      imageUrl: s.imageUrl || null,
-      imageLayout: s.imageLayout || "inline",
-      shapes: s.shapes || [],
-      visualType: s.visualType || "text-only",
-      visualData: s.visualData || undefined
-    })),
-    username,
-    websiteUrl,
-    scribble,
-  });
-
   const renderTheme = async (theme: ThemeName, scale: number = 1): Promise<string[] | null> => {
     const approved = slides.filter(s => s.approved);
     if (approved.length === 0) return null;
@@ -945,6 +828,9 @@ export default function Home() {
           logoUrl: customLogoUrl || undefined,
           noImages,
           accentColor: customAccentColor || undefined,
+          secondaryColor: customSecondaryColor || undefined,
+          bgColor: customBgColor || undefined,
+          textColor: customTextColor || undefined,
           scale,
         });
         if (!result.success) throw new Error(result.error);
@@ -1038,7 +924,7 @@ export default function Home() {
   // Double-Click canvas adding slide helper
   const addBlankCanvasAtExport = () => {
     const newSlide: Slide = {
-      id: `slide_${Math.random().toString(36).substr(2, 9)}`,
+      id: `slide_${Math.random().toString(36).substring(2, 11)}`,
       type: "CONTENT",
       order: slides.length,
       approved: true,
@@ -1142,9 +1028,7 @@ export default function Home() {
   };
 
   const handleQuickSlideEdit = (baseIndex: number, field: "userTitle" | "userBody", val: string) => {
-    const updated = [...slides];
-    updated[baseIndex][field] = val;
-    updated[baseIndex].isEdited = true;
+    const updated = slides.map((s, i) => i === baseIndex ? { ...s, [field]: val, isEdited: true } : s);
     setSlides(updated);
     saveDraftLocally(updated);
   };
@@ -1213,8 +1097,7 @@ export default function Home() {
 
     // Auto-generate elements if not yet created
     if (!slides[baseIdx].elements || slides[baseIdx].elements!.length === 0) {
-      const updated = [...slides];
-      updated[baseIdx].elements = autoGenerateElements(slides[baseIdx]);
+      const updated = slides.map((s, i) => i === baseIdx ? { ...s, elements: autoGenerateElements(s) } : s);
       setSlides(updated);
     }
 
@@ -1254,17 +1137,14 @@ export default function Home() {
   };
 
   const handleCanvasEditorSave = (elements: CanvasElement[], pngDataUrl: string) => {
+    if (editingSlideIdx === null) return;
     const approved = slides.filter(s => s.approved);
-    const target = approved[editingSlideIdx!];
+    const target = approved[editingSlideIdx];
     if (!target) return;
     const baseIdx = slides.findIndex(s => s.id === target.id);
     if (baseIdx === -1) return;
 
-    const updated = [...slides];
-    updated[baseIdx].elements = elements;
-    updated[baseIdx].manuallyEdited = true;
-    updated[baseIdx].canvasPngUrl = pngDataUrl;
-    updated[baseIdx].isEdited = true;
+    const updated = slides.map((s, i) => i === baseIdx ? { ...s, elements, manuallyEdited: true, canvasPngUrl: pngDataUrl, isEdited: true } : s);
     setSlides(updated);
     saveDraftLocally(updated);
 
@@ -1276,11 +1156,11 @@ export default function Home() {
         const newRendered = [...renderedImages];
         newRendered[approvedIdx] = pngDataUrl;
         setRenderedImages(newRendered);
-        const newThemeImages = { ...allThemeImages[themeName] || [] };
-        if (Array.isArray(newThemeImages)) {
-          newThemeImages[approvedIdx] = pngDataUrl;
-          setAllThemeImages(prev => ({ ...prev, [themeName]: newThemeImages }));
-        }
+        setAllThemeImages(prev => {
+          const themeArr = [...(prev[themeName] || [])];
+          themeArr[approvedIdx] = pngDataUrl;
+          return { ...prev, [themeName]: themeArr };
+        });
       }
     }
 
@@ -1299,6 +1179,7 @@ export default function Home() {
 
     try {
       const { data: result } = await axios.post("/api/plan-slides", {
+        url,
         text: extractedData.content,
         tone: preferences.tone,
         focus: preferences.focus,
@@ -1315,7 +1196,7 @@ export default function Home() {
       const formatted: Slide[] = result.data.slides.map((s: { type: string; title: string; body: string; visualType?: VisualType; visualData?: VisualData }, idx: number) => {
         const vType = s.type === "COVER" || s.type === "CLOSING" ? "text-only" : (s.visualType || "text-only");
         return {
-          id: `slide_${Math.random().toString(36).substr(2, 9)}`,
+          id: `slide_${Math.random().toString(36).substring(2, 11)}`,
           type: s.type,
           order: idx,
           approved: false,
@@ -1331,6 +1212,8 @@ export default function Home() {
       });
 
       setSlides(formatted);
+      setRenderedImages([]);
+      setAllThemeImages({});
       saveDraftLocally(formatted);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err) || "Failed to regenerate all slides.");
@@ -1359,7 +1242,7 @@ export default function Home() {
       const approvedExport = slides.filter(s => s.approved);
       const payloadImages = await Promise.all(
         indicesToExport.map(async (idx) => {
-          let dataUri = hqImages[idx];
+          let dataUri = hqImages[idx] || "";
           let ext = "png";
           if (exportFormat === "jpeg") {
             try {
@@ -1429,25 +1312,39 @@ export default function Home() {
       const { default: jsPDF } = await import("jspdf");
       const doc = new jsPDF({ unit: 'pt', format: [1080, 1350], compress: true });
 
+      // Set PDF metadata for print-quality output
+      const title = extractedData?.title || "Carousel Export";
+      doc.setProperties({
+        title,
+        subject: "Carousel presentation",
+        creator: "Caro",
+      });
+
       // Re-render at 3x for crystal-clear PDF export
       const hqImages = await renderTheme(themeName, 3) || renderedImages;
+
+      // Dark themes benefit from PNG (lossless) over JPEG
+      const DARK_THEMES = new Set(["monochrome", "cyber-horizon", "wireframe-3d"]);
 
       for (let i = 0; i < indicesToExport.length; i++) {
         const idx = indicesToExport[i];
         const pngDataUri = hqImages[idx];
+        if (!pngDataUri) continue;
 
         if (i > 0) {
           doc.addPage([1080, 1350]);
         }
 
-        // Convert to high-quality JPEG for smaller PDF with equivalent visual quality
+        // Use PNG for dark themes (lossless), JPEG for light themes (smaller)
         let imageUri = pngDataUri;
         let imageFormat: "PNG" | "JPEG" = "PNG";
-        try {
-          imageUri = await convertBase64PngToJpg(pngDataUri);
-          imageFormat = "JPEG";
-        } catch {
-          // Fall back to PNG if conversion fails
+        if (!DARK_THEMES.has(themeName)) {
+          try {
+            imageUri = await convertBase64PngToJpg(pngDataUri);
+            imageFormat = "JPEG";
+          } catch {
+            // Fall back to PNG if conversion fails
+          }
         }
 
         doc.addImage(imageUri, imageFormat, 0, 0, 1080, 1350);
@@ -1497,7 +1394,7 @@ export default function Home() {
   // ==========================================
   const addShapeToSlide = (baseIndex: number, type: "rect" | "circle" | "text") => {
     const newShape: Shape = {
-      id: `shape_${Math.random().toString(36).substr(2, 9)}`,
+      id: `shape_${Math.random().toString(36).substring(2, 11)}`,
       type,
       x: 35, // default centered
       y: 40,
@@ -1508,10 +1405,11 @@ export default function Home() {
       fontSize: type === "text" ? 32 : undefined
     };
 
-    const updated = [...slides];
-    const currentShapes = updated[baseIndex].shapes || [];
-    updated[baseIndex].shapes = [...currentShapes, newShape];
-    updated[baseIndex].isEdited = true;
+    const updated = slides.map((s, i) => {
+      if (i !== baseIndex) return s;
+      const currentShapes = s.shapes || [];
+      return { ...s, shapes: [...currentShapes, newShape], isEdited: true };
+    });
     
     setSlides(updated);
     saveDraftLocally(updated);
@@ -1523,25 +1421,26 @@ export default function Home() {
     key: K,
     value: Shape[K]
   ) => {
-    const updated = [...slides];
-    const shapesList = updated[baseIndex].shapes || [];
-    updated[baseIndex].shapes = shapesList.map(s => {
-      if (s.id === shapeId) {
-        return { ...s, [key]: value };
-      }
-      return s;
+    const updated = slides.map((s, i) => {
+      if (i !== baseIndex) return s;
+      const shapesList = s.shapes || [];
+      return {
+        ...s,
+        shapes: shapesList.map(shape => shape.id === shapeId ? { ...shape, [key]: value } : shape),
+        isEdited: true,
+      };
     });
-    updated[baseIndex].isEdited = true;
 
     setSlides(updated);
     saveDraftLocally(updated);
   };
 
   const removeShapeFromSlide = (baseIndex: number, shapeId: string) => {
-    const updated = [...slides];
-    const shapesList = updated[baseIndex].shapes || [];
-    updated[baseIndex].shapes = shapesList.filter(s => s.id !== shapeId);
-    updated[baseIndex].isEdited = true;
+    const updated = slides.map((s, i) => {
+      if (i !== baseIndex) return s;
+      const shapesList = s.shapes || [];
+      return { ...s, shapes: shapesList.filter(shape => shape.id !== shapeId), isEdited: true };
+    });
 
     setSlides(updated);
     saveDraftLocally(updated);
@@ -1958,7 +1857,12 @@ export default function Home() {
                 <select
                   id="cta-style-select"
                   value={ctaStyle}
-                  onChange={(e) => setCtaStyle(e.target.value as any)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if ((CTA_STYLES as readonly string[]).includes(val)) {
+                      setCtaStyle(val as "soft" | "direct" | "newsletter" | "product" | "no-cta");
+                    }
+                  }}
                   className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-700 focus:outline-none"
                 >
                   <option value="soft">Soft CTA</option>
@@ -2344,8 +2248,7 @@ export default function Home() {
                           <select
                             value={s.type}
                             onChange={(e) => {
-                              const updated = [...slides];
-                              updated[idx].type = e.target.value as "COVER" | "CONTENT" | "CLOSING";
+                              const updated = slides.map((sl, i) => i === idx ? { ...sl, type: e.target.value as "COVER" | "CONTENT" | "CLOSING" } : sl);
                               setSlides(updated);
                               saveDraftLocally(updated);
                             }}
@@ -3159,7 +3062,13 @@ export default function Home() {
                     <div className="absolute top-3.5 right-3.5 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleRegenerateBlock(activeSocialSlide, "Regenerate this slide with fresh content")}
+                        onClick={() => {
+                          const approvedIdx = slides.filter(s => s.approved)[activeSocialSlide];
+                          if (approvedIdx) {
+                            const fullIdx = slides.findIndex(s => s.id === approvedIdx.id);
+                            if (fullIdx !== -1) handleRegenerateBlock(fullIdx, "Regenerate this slide with fresh content");
+                          }
+                        }}
                         className="bg-black/60 backdrop-blur-sm p-1.5 rounded-full hover:bg-black/80 transition-all z-10"
                         title="Regenerate this slide"
                       >
@@ -3622,6 +3531,15 @@ export default function Home() {
                   setCustomLogoUrl("");
                   setCustomFontPairing("Outfit + Outfit");
                   setCustomAccentColor("");
+                  setCustomSecondaryColor("");
+                  setCustomBgColor("");
+                  setCustomTextColor("");
+                  setCustomLayoutDensity("comfortable");
+                  setNoImages(false);
+                  setUsername("");
+                  setWebsiteUrl("");
+                  setPreferences(p => ({ ...p, tone: "professional" }));
+                  setCtaStyle("soft");
                   setIsBrandKitOpen(false);
                 }}
                 className="px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-500 hover:text-neutral-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
@@ -3638,6 +3556,11 @@ export default function Home() {
                   if (brandKit.fontPairing) setCustomFontPairing(brandKit.fontPairing);
                   if (brandKit.logoUrl) setCustomLogoUrl(brandKit.logoUrl);
                   if (brandKit.colors?.primary) setCustomAccentColor(brandKit.colors.primary);
+                  if (brandKit.colors?.secondary) setCustomSecondaryColor(brandKit.colors.secondary);
+                  if (brandKit.colors?.background) setCustomBgColor(brandKit.colors.background);
+                  if (brandKit.colors?.text) setCustomTextColor(brandKit.colors.text);
+                  if (brandKit.defaultTone) setPreferences((p) => ({ ...p, tone: brandKit.defaultTone! }));
+                  if (brandKit.defaultCTA && (CTA_STYLES as readonly string[]).includes(brandKit.defaultCTA)) setCtaStyle(brandKit.defaultCTA as "soft" | "direct" | "newsletter" | "product" | "no-cta");
                   setIsBrandKitOpen(false);
                 }}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"

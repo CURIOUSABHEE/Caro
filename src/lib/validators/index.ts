@@ -10,6 +10,7 @@ export const ExtractSchema = z.object({
 
 // Step 2: Slide Plan validator (now with Content Intelligence parameters and Outline steering)
 export const PlanSlidesSchema = z.object({
+  url: z.string().url().optional(),
   text: z.string().min(50, "Content is too short to generate a slide deck"),
   tone: z.enum(["educational", "punchy", "contrarian", "story-driven", "professional"]).default("professional"),
   focus: z.string().optional(),
@@ -31,6 +32,7 @@ export const PlanSlidesSchema = z.object({
 
 // Step 2.1: Outline generation validator
 export const GenerateOutlinesSchema = z.object({
+  url: z.string().url().optional(),
   text: z.string().min(50, "Content is too short to generate a slide deck"),
   tone: z.enum(["educational", "punchy", "contrarian", "story-driven", "professional"]).default("professional"),
   focus: z.string().optional(),
@@ -47,9 +49,9 @@ export const RegenerateAlternativesSchema = z.object({
   originalText: z.string().optional(),
   currentTitle: z.string().optional(),
   currentBody: z.string().optional(),
-  tone: z.string().default("professional"),
-  audience: z.string().default("founders"),
-  goal: z.string().default("teach"),
+  tone: z.enum(["educational", "punchy", "contrarian", "story-driven", "professional"]).default("professional"),
+  audience: z.enum(["founders", "engineers", "marketers", "beginners", "executives"]).default("founders"),
+  goal: z.enum(["teach", "sell", "summarize", "announce", "persuade"]).default("teach"),
 });
 
 // Step 2.5: Regenerate Block validator
@@ -60,6 +62,8 @@ export const RegenerateBlockSchema = z.object({
     title: z.string(),
     body: z.string(),
     order: z.number(),
+    visualType: VisualTypeEnum.optional(),
+    visualData: z.any().optional(),
   }),
   instruction: z.string().optional().default(""),
   originalText: z.string().optional(), // optionally provide context
@@ -122,6 +126,9 @@ export const RenderProjectSchema = z.object({
   logoUrl: z.string().optional(),
   noImages: z.boolean().optional(),
   accentColor: z.string().optional(),
+  secondaryColor: z.string().optional(),
+  bgColor: z.string().optional(),
+  textColor: z.string().optional(),
   scale: z.number().min(1).max(4).default(1),
 });
 

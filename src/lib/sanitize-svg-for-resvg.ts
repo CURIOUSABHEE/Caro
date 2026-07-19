@@ -6,9 +6,9 @@ interface SvgRect {
 }
 
 function parseAttr(tag: string, name: string): number | null {
-  const match = tag.match(new RegExp(`\\b${name}="([^"]*)"`));
+  const match = tag.match(new RegExp(`\\b${name}=(?:"([^"]*)"|'([^']*)')`));
   if (!match) return null;
-  const value = parseFloat(match[1]);
+  const value = parseFloat(match[1] ?? match[2]);
   return Number.isFinite(value) ? value : null;
 }
 
@@ -67,6 +67,12 @@ export function sanitizeSvgForResvg(svg: string): string {
       if (parsedRects.length === 0) {
         if (id) removedIds.add(id);
         return "";
+      }
+
+      // If clipPath has non-rect children (circle, path, etc.), preserve the inner content
+      const hasNonRectChildren = rectTags.length < (inner.match(/<\w+/g) ?? []).length;
+      if (hasNonRectChildren) {
+        return match;
       }
 
       if (parsedRects.length === 1) {
