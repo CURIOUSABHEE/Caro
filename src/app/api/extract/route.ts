@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { withValidation } from "@/lib/api-route";
 import { ExtractSchema } from "@/lib/validators";
 import { extractArticle } from "@/services/scraper";
@@ -20,7 +21,18 @@ export const POST = withValidation(ExtractSchema, async ({ url }) => {
   }
 
   console.log(`[API Extract] Cache MISS for URL: ${url}. Scraping...`);
-  const article = await extractArticle(url);
-  extractionCache.set(url, article);
-  return article;
+  try {
+    const article = await extractArticle(url);
+    extractionCache.set(url, article);
+    return article;
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to extract article. Try pasting content directly.";
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: 422 }
+    );
+  }
 });

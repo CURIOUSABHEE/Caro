@@ -107,7 +107,12 @@ async function getBrowser(): Promise<Browser> {
   }
 
   browserLaunchPromise = (async () => {
-    const { chromium } = await import("playwright");
+    let chromium;
+    try {
+      ({ chromium } = await import("playwright"));
+    } catch {
+      throw new Error("Browser scraping is not available in this environment. Try pasting the article content directly.");
+    }
     const browser = await chromium.launch({
       headless: true,
     });

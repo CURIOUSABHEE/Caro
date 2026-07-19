@@ -402,7 +402,13 @@ export default function Home() {
       setExtractedData(result.data);
       setShowExtractedPreview(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err) || "Failed to connect to the scraping API.");
+      const msg =
+        (axios.isAxiosError(err) && typeof err.response?.data?.error === "string")
+          ? err.response.data.error
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      setError(msg || "Failed to connect to the scraping API.");
     } finally {
       setIsExtracting(false);
     }
