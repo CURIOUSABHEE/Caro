@@ -141,7 +141,7 @@ async function fetchHtmlViaBrowser(url: string, timeoutMs: number = 45000): Prom
 
   try {
     await page.goto(url, {
-      waitUntil: "networkidle",
+      waitUntil: "load",
       timeout: timeoutMs,
     });
 
