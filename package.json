@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "vercel-build": "npx playwright install --with-deps chromium && prisma generate && next build"
+    "vercel-build": "npx playwright install chromium && prisma generate && next build"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
