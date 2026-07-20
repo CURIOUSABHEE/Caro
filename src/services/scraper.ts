@@ -83,14 +83,59 @@ function htmlToArticle(html: string): ExtractedArticle | null {
 
   const reader = new Readability(document);
   const article = reader.parse();
-  if (!article) return null;
+  if (article && article.textContent && article.textContent.trim().length > 50) {
+    return {
+      title: article.title || "Untitled Article",
+      content: article.textContent.trim(),
+      excerpt: article.excerpt ? article.excerpt.trim() : "",
+      siteName: article.siteName || "",
+    };
+  }
 
-  return {
-    title: article.title || "Untitled Article",
-    content: article.textContent ? article.textContent.trim() : "",
-    excerpt: article.excerpt ? article.excerpt.trim() : "",
-    siteName: article.siteName || "",
-  };
+  // Fallback: extract text from semantic containers when Readability fails
+  const title =
+    document.querySelector("h1")?.textContent?.trim() ||
+    document.querySelector("title")?.textContent?.trim() ||
+    "Untitled Article";
+
+  const selectors = [
+    "article",
+    '[role="article"]',
+    "main",
+    '[role="main"]',
+    ".post-content",
+    ".article-content",
+    ".entry-content",
+    ".article-body",
+    ".post-body",
+    ".content-area",
+    "#article-content",
+    "#readme",
+  ];
+
+  let container: Element | null = null;
+  for (const sel of selectors) {
+    container = document.querySelector(sel);
+    if (container) break;
+  }
+
+  if (!container) {
+    // Last resort: gather all <p> text
+    const paragraphs = document.querySelectorAll("p");
+    const text = Array.from(paragraphs)
+      .map((p) => p.textContent?.trim())
+      .filter((t) => t && t.length > 20)
+      .join("\n\n");
+    if (text.length > 50) {
+      return { title, content: text, excerpt: "", siteName: "" };
+    }
+    return null;
+  }
+
+  const text = container.textContent?.trim() || "";
+  if (text.length <= 50) return null;
+
+  return { title, content: text, excerpt: "", siteName: "" };
 }
 
 // Persistent browser instance for Cloudflare-protected sites
